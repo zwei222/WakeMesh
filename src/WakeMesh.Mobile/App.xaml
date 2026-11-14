@@ -1,0 +1,17 @@
+﻿<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:WakeMesh.Mobile"
+             xmlns:converters="clr-namespace:WakeMesh.Mobile.Converters"
+             x:Class="WakeMesh.Mobile.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <converters:BoolToColorConverter x:Key="DaySelectedColorConverter"
+                                             TrueColor="{StaticResource BrandCyan}"
+                                             FalseColor="{StaticResource ChipBackground}" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

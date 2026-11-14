@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             x:Class="WakeMesh.Mobile.Views.AlarmEditPage"
+             x:DataType="vm:AlarmEditViewModel"
+             Title="{Binding PageTitle}"
+             BackgroundColor="{StaticResource SurfaceDark}">
+
+    <ScrollView>
+        <VerticalStackLayout MaximumWidthRequest="600"
+                             Padding="20"
+                             Spacing="20"
+                             HorizontalOptions="Center">
+
+            <!-- 時刻設定カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="20">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="アラーム時刻"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextSlate400}"/>
+                    
+                    <TimePicker Time="{Binding TimeOfDay}"
+                                Format="HH:mm"
+                                FontSize="36"
+                                TextColor="{StaticResource TextSlate100}"
+                                HorizontalOptions="Center"
+                                BackgroundColor="Transparent"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- アラーム名入力カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="20">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="アラーム名"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextSlate400}"/>
+                    
+                    <Entry Text="{Binding Name}"
+                           Placeholder="例: 平日起床アラーム"
+                           PlaceholderColor="{StaticResource TextSlate500}"
+                           TextColor="{StaticResource TextSlate100}"
+                           BackgroundColor="{StaticResource ChipBackground}"
+                           FontSize="15"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 繰り返し種別設定カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="20">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="繰り返し設定"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource TextSlate400}"/>
+
+                    <!-- 単発 / 曜日繰り返し 切替トグル -->
+                    <Grid ColumnDefinitions="*, *" ColumnSpacing="8">
+                        <Button Grid.Column="0"
+                                Text="毎週繰り返し"
+                                FontSize="13"
+                                HeightRequest="38"
+                                BackgroundColor="{Binding IsWeekly, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#0284C7'}"
+                                TextColor="{StaticResource TextSlate100}"
+                                Clicked="OnSelectWeekly"/>
+                        <Button Grid.Column="1"
+                                Text="1回のみ (単発)"
+                                FontSize="13"
+                                HeightRequest="38"
+                                BackgroundColor="{Binding IsOnce, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                TextColor="{StaticResource TextSlate100}"
+                                Clicked="OnSelectOnce"/>
+                    </Grid>
+
+                    <!-- 単発時の日付選択 UI -->
+                    <VerticalStackLayout IsVisible="{Binding IsOnce}" Spacing="8" Margin="0,8,0,0">
+                        <Label Text="鳴動日（過去時刻の場合は自動で翌日を選択）"
+                               FontSize="11"
+                               TextColor="{StaticResource BrandCyanLight}"/>
+                        <DatePicker Date="{Binding OnceDate}"
+                                    Format="yyyy年MM月dd日"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    BackgroundColor="{StaticResource ChipBackground}"/>
+                    </VerticalStackLayout>
+
+                    <!-- 繰り返し時の曜日トグルボタングリッド -->
+                    <VerticalStackLayout IsVisible="{Binding IsWeekly}" Spacing="8" Margin="0,8,0,0">
+                        <Grid ColumnDefinitions="*,*,*,*,*,*,*" ColumnSpacing="6">
+                            <!-- 月 -->
+                            <Button Grid.Column="0" Text="月" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatMonday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleMonday"/>
+                            <!-- 火 -->
+                            <Button Grid.Column="1" Text="火" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatTuesday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleTuesday"/>
+                            <!-- 水 -->
+                            <Button Grid.Column="2" Text="水" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatWednesday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleWednesday"/>
+                            <!-- 木 -->
+                            <Button Grid.Column="3" Text="木" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatThursday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleThursday"/>
+                            <!-- 金 -->
+                            <Button Grid.Column="4" Text="金" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatFriday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleFriday"/>
+                            <!-- 土 -->
+                            <Button Grid.Column="5" Text="土" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatSaturday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleSaturday"/>
+                            <!-- 日 -->
+                            <Button Grid.Column="6" Text="日" FontSize="12" Padding="0" HeightRequest="40"
+                                    BackgroundColor="{Binding RepeatSunday, Converter={StaticResource DaySelectedColorConverter}, FallbackValue='#1E293B'}"
+                                    TextColor="{StaticResource TextSlate100}"
+                                    Clicked="OnToggleSunday"/>
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- オプション設定カード (祝日スキップ & スヌーズ & 音量・バイブ) -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="20">
+                <VerticalStackLayout Spacing="16">
+                    <!-- 祝日スキップスイッチ -->
+                    <Grid ColumnDefinitions="*, Auto">
+                        <VerticalStackLayout Grid.Column="0" Spacing="4" VerticalOptions="Center">
+                            <Label Text="祝日をスキップ"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextSlate100}"/>
+                            <Label Text="日本の国民の祝日および振替休日はアラームを鳴動させません"
+                                   FontSize="11"
+                                   TextColor="{StaticResource TextSlate500}"/>
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding SkipHolidays}"
+                                OnColor="{StaticResource BrandCyan}"
+                                ThumbColor="{StaticResource TextSlate100}"
+                                VerticalOptions="Center"/>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource CardBorderDark}"/>
+
+                    <!-- 音源選択＆試聴 -->
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto" RowSpacing="8">
+                        <Label Grid.Row="0" Grid.Column="0"
+                               Text="アラーム音"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}"
+                               VerticalOptions="Center"/>
+
+                        <Button Grid.Row="0" Grid.Column="1"
+                                Text="{Binding PreviewButtonText}"
+                                Command="{Binding TogglePreviewSoundCommand}"
+                                FontSize="12"
+                                HeightRequest="34"
+                                BackgroundColor="{StaticResource ChipBackground}"
+                                TextColor="{StaticResource TextSlate100}"
+                                CornerRadius="8"
+                                Padding="12,4"
+                                VerticalOptions="Center"/>
+
+                        <Picker Grid.Row="1" Grid.ColumnSpan="2"
+                                ItemsSource="{Binding SoundOptions}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding SelectedSound}"
+                                TextColor="{StaticResource TextSlate100}"
+                                BackgroundColor="{StaticResource ChipBackground}"
+                                Title="音源を選択"/>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource CardBorderDark}"/>
+
+                    <!-- 音量調整 -->
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*, Auto">
+                            <Label Grid.Column="0"
+                                   Text="音量"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource TextSlate100}"/>
+                            <Label Grid.Column="1"
+                                   Text="{Binding VolumePercent, StringFormat='{0} %'}"
+                                   FontSize="13"
+                                   TextColor="{StaticResource BrandCyanLight}"
+                                   FontAttributes="Bold"/>
+                        </Grid>
+                        <Slider Minimum="5" Maximum="100"
+                                Value="{Binding VolumePercent}"
+                                MinimumTrackColor="{StaticResource BrandCyan}"
+                                MaximumTrackColor="{StaticResource CardBorderDark}"
+                                ThumbColor="{StaticResource TextSlate100}"/>
+                    </VerticalStackLayout>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource CardBorderDark}"/>
+
+                    <!-- スヌーズ間隔 -->
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0"
+                               Text="スヌーズ時間"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}"
+                               VerticalOptions="Center"/>
+                        
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <Stepper Minimum="1" Maximum="30" Increment="1"
+                                     Value="{Binding SnoozeMinutes}"
+                                     VerticalOptions="Center"/>
+                            <Label Text="{Binding SnoozeMinutes, StringFormat='{0} 分'}"
+                                   FontSize="14"
+                                   TextColor="{StaticResource BrandCyanLight}"
+                                   VerticalOptions="Center"
+                                   WidthRequest="40"/>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource CardBorderDark}"/>
+
+                    <!-- バイブレーション -->
+                    <Grid ColumnDefinitions="*, Auto">
+                        <Label Grid.Column="0"
+                               Text="バイブレーション"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}"
+                               VerticalOptions="Center"/>
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding EnableVibration}"
+                                OnColor="{StaticResource BrandCyan}"
+                                ThumbColor="{StaticResource TextSlate100}"
+                                VerticalOptions="Center"/>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- エラー表示 -->
+            <Label Text="{Binding ErrorMessage}"
+                   FontSize="13"
+                   TextColor="{StaticResource StatusRose}"
+                   IsVisible="{Binding HasError}"
+                   HorizontalOptions="Center"/>
+
+            <!-- ボタンエリア -->
+            <Grid ColumnDefinitions="*, *" ColumnSpacing="12" Margin="0,10,0,30">
+                <Button Grid.Column="0"
+                        Text="キャンセル"
+                        FontSize="15"
+                        BackgroundColor="{StaticResource ChipBackground}"
+                        TextColor="{StaticResource TextSlate400}"
+                        CornerRadius="12"
+                        HeightRequest="48"
+                        Clicked="OnCancelClicked"/>
+
+                <Button Grid.Column="1"
+                        Text="保存"
+                        FontSize="15"
+                        FontAttributes="Bold"
+                        BackgroundColor="{StaticResource BrandCyan}"
+                        TextColor="{StaticResource SurfaceDark}"
+                        CornerRadius="12"
+                        HeightRequest="48"
+                        Command="{Binding SaveCommand}"/>
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,69 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+	<application 
+		android:allowBackup="true" 
+		android:dataExtractionRules="@xml/data_extraction_rules"
+		android:fullBackupContent="@xml/backup_rules"
+		android:icon="@mipmap/appicon" 
+		android:roundIcon="@mipmap/appicon_round" 
+		android:supportsRtl="true"
+		android:label="WakeMesh">
+		
+		<service 
+			android:name="wakemesh.mobile.platforms.android.WakeMeshAlarmService"
+			android:foregroundServiceType="mediaPlayback"
+			android:exported="false" />
+
+		<service 
+			android:name="wakemesh.mobile.platforms.android.push.WakeMeshFirebaseMessagingService"
+			android:exported="false">
+			<intent-filter>
+				<action android:name="com.google.firebase.MESSAGING_EVENT" />
+			</intent-filter>
+		</service>
+
+		<receiver 
+			android:name="wakemesh.mobile.platforms.android.WakeMeshAlarmReceiver"
+			android:exported="false" />
+
+		<receiver 
+			android:name="wakemesh.mobile.platforms.android.WakeMeshBootReceiver"
+			android:enabled="true"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="android.intent.action.BOOT_COMPLETED" />
+				<action android:name="android.intent.action.QUICKBOOT_POWERON" />
+				<action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+				<action android:name="android.intent.action.TIME_SET" />
+				<action android:name="android.intent.action.TIMEZONE_CHANGED" />
+				<action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+			</intent-filter>
+		</receiver>
+
+		<activity
+			android:name="wakemesh.mobile.platforms.android.AlarmAlertActivity"
+			android:exported="false"
+			android:showOnLockScreen="true"
+			android:showWhenLocked="true"
+			android:turnScreenOn="true"
+			android:excludeFromRecents="true"
+			android:launchMode="singleInstance"
+			android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen" />
+
+	</application>
+
+	<!-- アラーム必須権限 -->
+	<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+	<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+	<uses-permission android:name="android.permission.WAKE_LOCK" />
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+	<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+	<uses-permission android:name="android.permission.VIBRATE" />
+	<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.INTERNET" />
+</manifest>

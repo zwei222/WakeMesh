@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>WakeMesh.Client</RootNamespace>
+    <Description>Pure shared HTTP API client for WakeMesh (MAUI-ready). No ASP.NET host dependency.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WakeMesh.Client.Tests" />
+  </ItemGroup>
+
+</Project>

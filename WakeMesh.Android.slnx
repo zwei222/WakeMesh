@@ -1,0 +1,13 @@
+<Solution>
+  <!--
+    Android / MAUI build path only.
+    Requires Android workload + local Android SDK tooling under .tools/.
+    Do not use this solution for managed server/unit tests (use WakeMesh.slnx).
+    WakeMesh.Client is listed for future MAUI ProjectReference (net11.0 → android TFM wiring is a follow-on Mobile task).
+  -->
+  <Folder Name="/src/">
+    <Project Path="src/WakeMesh.Core/WakeMesh.Core.csproj" />
+    <Project Path="src/WakeMesh.Client/WakeMesh.Client.csproj" />
+    <Project Path="src/WakeMesh.Mobile/WakeMesh.Mobile.csproj" />
+  </Folder>
+</Solution>

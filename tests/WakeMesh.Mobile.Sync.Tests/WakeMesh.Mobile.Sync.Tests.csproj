@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>WakeMesh.Mobile.Sync.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WakeMesh.Core\WakeMesh.Core.csproj" />
+    <ProjectReference Include="..\..\src\WakeMesh.Client\WakeMesh.Client.csproj" />
+    <ProjectReference Include="..\..\src\WakeMesh.Api\WakeMesh.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Link pure domain logic from WakeMesh.Mobile required for sync without pulling Android/Auth dependencies -->
+    <Compile Include="..\..\src\WakeMesh.Mobile\Models\LocalAlarmModel.cs" Link="Linked\Models\LocalAlarmModel.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAlarmStore.cs" Link="Linked\Services\IAlarmStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\JsonFileAlarmStore.cs" Link="Linked\Services\JsonFileAlarmStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAlarmScheduler.cs" Link="Linked\Services\IAlarmScheduler.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmCoordinator.cs" Link="Linked\Services\AlarmCoordinator.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmScheduleCalculator.cs" Link="Linked\Services\AlarmScheduleCalculator.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IHolidayService.cs" Link="Linked\Services\IHolidayService.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmStoragePathHelper.cs" Link="Linked\Services\AlarmStoragePathHelper.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\CloudSync\**\*.cs" Link="Linked\Services\CloudSync\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

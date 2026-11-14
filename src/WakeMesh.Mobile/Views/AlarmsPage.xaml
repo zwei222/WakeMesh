@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             xmlns:models="clr-namespace:WakeMesh.Mobile.Models"
+             xmlns:services="clr-namespace:WakeMesh.Mobile.Services"
+             x:Class="WakeMesh.Mobile.Views.AlarmsPage"
+             x:DataType="vm:AlarmListViewModel"
+             Title="アラーム"
+             BackgroundColor="{StaticResource SurfaceDark}">
+
+    <Grid RowDefinitions="Auto, Auto, *">
+        <!-- 鳴動中アラーム警告＆即時停止バナー (通知拒否や全画面不可でもアプリ内から即停止可能) -->
+        <Border Grid.Row="0"
+                IsVisible="{Binding IsRinging}"
+                Margin="16,12,16,4"
+                Padding="16,12"
+                StrokeShape="RoundRectangle 12"
+                Stroke="{StaticResource StatusRose}"
+                BackgroundColor="#450A0A"
+                MaximumWidthRequest="640">
+            <VerticalStackLayout Spacing="10">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    <Label Grid.Column="0" Text="🔔" FontSize="22" VerticalOptions="Center" Margin="0,0,10,0"/>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="{Binding RingingBannerTitle}"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource StatusRose}"/>
+                        <Label Text="全画面表示や通知が無効でも、ここから停止できます"
+                               FontSize="11"
+                               TextColor="{StaticResource TextSlate300}"/>
+                    </VerticalStackLayout>
+                    <Button Grid.Column="2"
+                            Text="一括停止"
+                            Command="{Binding DismissAllRingingCommand}"
+                            FontSize="12"
+                            FontAttributes="Bold"
+                            BackgroundColor="{StaticResource StatusRose}"
+                            TextColor="{StaticResource TextSlate100}"
+                            CornerRadius="8"
+                            Padding="12,6"
+                            HeightRequest="36"
+                            VerticalOptions="Center"/>
+                </Grid>
+
+                <CollectionView ItemsSource="{Binding RingingAlarms}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="services:ActiveRingingAlarm">
+                            <Grid ColumnDefinitions="*, Auto" Margin="0,4">
+                                <Label Grid.Column="0"
+                                       Text="{Binding AlarmName}"
+                                       FontSize="13"
+                                       TextColor="{StaticResource TextSlate100}"
+                                       VerticalOptions="Center"/>
+                                <Button Grid.Column="1"
+                                        Text="停止"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:AlarmListViewModel}}, Path=DismissRingingAlarmCommand}"
+                                        CommandParameter="{Binding AlarmId}"
+                                        FontSize="11"
+                                        BackgroundColor="#7F1D1D"
+                                        TextColor="{StaticResource TextSlate100}"
+                                        CornerRadius="6"
+                                        Padding="10,4"
+                                        HeightRequest="30"
+                                        VerticalOptions="Center"/>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- 上部システム状態バナー -->
+        <Border Grid.Row="1"
+                Margin="16,12,16,8"
+                Padding="14,10"
+                StrokeShape="RoundRectangle 12"
+                Stroke="{StaticResource CardBorderDark}"
+                BackgroundColor="{StaticResource CardDark}"
+                MaximumWidthRequest="640">
+            <VerticalStackLayout Spacing="6">
+                <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                    <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4" Color="{StaticResource StatusAmber}" VerticalOptions="Center"/>
+                    <Label Text="同期状態: ローカル単独運用中 (MS認証 / Azure未接続)"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource StatusAmber}"/>
+                </HorizontalStackLayout>
+                
+                <Label Text="{Binding HolidayNotice}"
+                       FontSize="11"
+                       TextColor="{StaticResource TextSlate400}"/>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- メインコンテンツ領域 (最大幅制限でタブレット・通常幅両対応) -->
+        <Grid Grid.Row="2" MaximumWidthRequest="640" HorizontalOptions="Center">
+            <!-- 処理中表示 -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource BrandCyan}"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Center"
+                               ZIndex="10"/>
+
+            <!-- アラーム一覧 -->
+            <RefreshView IsRefreshing="{Binding IsBusy}"
+                         Command="{Binding LoadAlarmsCommand}">
+                <CollectionView ItemsSource="{Binding Alarms}"
+                                SelectionMode="None"
+                                Margin="16,0,16,80">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout VerticalOptions="Center"
+                                             HorizontalOptions="Center"
+                                             Spacing="16"
+                                             Padding="32">
+                            <Label Text="⏰"
+                                   FontSize="48"
+                                   HorizontalOptions="Center"/>
+                            <Label Text="設定されたアラームはありません"
+                                   FontSize="16"
+                                   TextColor="{StaticResource TextSlate100}"
+                                   FontAttributes="Bold"
+                                   HorizontalOptions="Center"/>
+                            <Label Text="右下の「＋」ボタンから新しいアラームを追加してください"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextSlate500}"
+                                   HorizontalOptions="Center"
+                                   HorizontalTextAlignment="Center"/>
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:LocalAlarmModel">
+                            <Border Margin="0,6,0,6"
+                                    Padding="16"
+                                    StrokeShape="RoundRectangle 16"
+                                    Stroke="{StaticResource CardBorderDark}"
+                                    BackgroundColor="{StaticResource CardDark}">
+                                <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto">
+                                    <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="4">
+                                        <!-- アラーム名 -->
+                                        <Label Text="{Binding Name}"
+                                               FontSize="14"
+                                               TextColor="{StaticResource TextSlate400}"/>
+                                        <!-- 時刻 -->
+                                        <Label Text="{Binding Time, StringFormat='{0:hh\\:mm}'}"
+                                               FontSize="38"
+                                               FontAttributes="Bold"
+                                               TextColor="{StaticResource TextSlate100}"/>
+                                    </VerticalStackLayout>
+
+                                    <!-- 有効/無効 スイッチ -->
+                                    <Switch Grid.Row="0" Grid.Column="1"
+                                            IsToggled="{Binding IsEnabled}"
+                                            OnColor="{StaticResource BrandCyan}"
+                                            ThumbColor="{StaticResource TextSlate100}"
+                                            VerticalOptions="Center"
+                                            Toggled="OnAlarmToggled"/>
+
+                                    <!-- 下段: 曜日・祝日バッジ & 次回発火情報 & 操作ボタン -->
+                                    <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*, Auto" Margin="0,10,0,0">
+                                        <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                                            <!-- 曜日概要 -->
+                                            <Border Padding="8,4"
+                                                    BackgroundColor="{StaticResource ChipBackground}"
+                                                    StrokeShape="RoundRectangle 6"
+                                                    StrokeThickness="0">
+                                                <Label Text="{Binding DaysSummary}"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource BrandCyanLight}"/>
+                                            </Border>
+
+                                            <!-- 祝日除外バッジ -->
+                                            <Border IsVisible="{Binding SkipHolidays}"
+                                                    Padding="8,4"
+                                                    BackgroundColor="#1E1B4B"
+                                                    StrokeShape="RoundRectangle 6"
+                                                    StrokeThickness="0">
+                                                <Label Text="祝日休止"
+                                                       FontSize="11"
+                                                       TextColor="#A5B4FC"/>
+                                            </Border>
+
+                                            <!-- OS未登録・権限警告バッジ -->
+                                            <Border IsVisible="{Binding IsRegistrationFailed}"
+                                                    Padding="8,4"
+                                                    BackgroundColor="#450A0A"
+                                                    StrokeShape="RoundRectangle 6"
+                                                    StrokeThickness="0">
+                                                <Label Text="{Binding RegistrationSummary}"
+                                                       FontSize="11"
+                                                       TextColor="{StaticResource StatusRose}"/>
+                                            </Border>
+                                        </HorizontalStackLayout>
+
+                                        <!-- 編集・削除ボタン -->
+                                        <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                            <Button Text="編集"
+                                                    FontSize="12"
+                                                    Padding="12,6"
+                                                    HeightRequest="34"
+                                                    BackgroundColor="{StaticResource ChipBackground}"
+                                                    TextColor="{StaticResource TextSlate100}"
+                                                    Clicked="OnEditAlarmClicked"
+                                                    CommandParameter="{Binding .}"/>
+
+                                            <Button Text="削除"
+                                                    FontSize="12"
+                                                    Padding="12,6"
+                                                    HeightRequest="34"
+                                                    BackgroundColor="#450A0A"
+                                                    TextColor="{StaticResource StatusRose}"
+                                                    Clicked="OnDeleteAlarmClicked"
+                                                    CommandParameter="{Binding .}"/>
+                                        </HorizontalStackLayout>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </RefreshView>
+
+            <!-- アラーム追加 FAB ボタン -->
+            <Button Text="＋ アラーム追加"
+                    FontSize="15"
+                    FontAttributes="Bold"
+                    BackgroundColor="{StaticResource BrandCyan}"
+                    TextColor="{StaticResource SurfaceDark}"
+                    CornerRadius="24"
+                    HeightRequest="48"
+                    Padding="20,0"
+                    VerticalOptions="End"
+                    HorizontalOptions="Center"
+                    Margin="0,0,0,20"
+                    Shadow="{Shadow Brush={StaticResource BrandCyan}, Offset='0,4', Radius=12, Opacity=0.3}"
+                    Clicked="OnAddAlarmClicked"/>
+        </Grid>
+    </Grid>
+</ContentPage>

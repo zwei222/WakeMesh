@@ -1,0 +1,110 @@
+# Local tooling / SDK (never commit)
+.tools/
+.dotnet/
+.nuget/
+
+# Build
+bin/
+obj/
+[Bb]uild/
+[Oo]ut/
+artifacts/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+project.lock.json
+project.fragment.lock.json
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Secrets / personal overlays OUTSIDE git (path-specific; do NOT blanket-hide
+# test source names such as *secret* / *credential* under tests/).
+# Keep unit/integration test .cs files visible to git.
+# ---------------------------------------------------------------------------
+.env
+.env.*
+*.pfx
+*.p12
+*.key
+*.pem
+*.snk
+**/appsettings.*.local.json
+**/appsettings.Local.json
+**/secrets.json
+**/local.settings.json
+**/Properties/launchSettings.json
+# Service-account JSON filenames only (not *ServiceAccount* test class sources)
+**/service-account*.json
+**/serviceaccount*.json
+**/ServiceAccount*.json
+# Firebase client config (file name exact / platform path) — not Push.Tests sources
+**/google-services.json
+**/GoogleService-Info.plist
+**/google-services*.json
+# Token / cert directories (not source trees named *Auth*)
+**/AuthTokens/
+**/SigningKeys/
+**/local-certs/
+**/LocalCerts/
+*.local.json
+nuget.config.local
+# Credential material by extension / known store names (not *Credential*.cs tests)
+**/credentials.json
+**/credential.json
+**/*-credentials.json
+**/*.credentials.json
+
+# Databases / local state / backups
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.bak
+*.backup
+*.dump
+
+# Logs and evidence (keep out of git)
+logs/
+*.log
+.evidence/
+tdd-evidence/
+**/TestResults/
+
+# NuGet
+**/packages/
+*.nupkg
+*.snupkg
+
+# Android / MAUI packaging & signing material (artifacts, not test sources)
+**/*.apk
+**/*.aab
+**/*.ap_
+**/*.keystore
+**/*.jks
+**/key.properties
+**/Platforms/Android/**/google-services.json
+*.mobileprovision
+*.ipa
+# Release signing property sidecars (values live outside the repo)
+**/android-signing*.props
+**/Directory.Build.local.props
+**/WakeMesh.Mobile.*.local.props
+
+# Coverage
+coverage/
+*.coverage/
+*.coveragexml

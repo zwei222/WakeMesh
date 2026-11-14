@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             x:Class="WakeMesh.Mobile.Views.CloudAlarmGroupEditPage"
+             x:DataType="vm:CloudAlarmGroupEditViewModel"
+             Title="アラームグループ編集"
+             BackgroundColor="{StaticResource SurfaceDark}">
+
+    <ScrollView>
+        <VerticalStackLayout MaximumWidthRequest="640"
+                             Padding="16"
+                             Spacing="16"
+                             HorizontalOptions="Center">
+
+            <!-- 処理中インジケータ -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               Color="{StaticResource BrandCyan}"
+                               HeightRequest="24"
+                               HorizontalOptions="Center" />
+
+            <!-- ETag 412 競合警告バナー（入力内容は保持） -->
+            <Border IsVisible="{Binding ConflictDetected}"
+                    StrokeShape="RoundRectangle 12"
+                    Stroke="{StaticResource StatusRose}"
+                    BackgroundColor="#450A0A"
+                    Padding="14">
+                <VerticalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="⚠️" FontSize="18" />
+                        <Label Text="【競合検知】ETag 412 Precondition Failed"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource StatusRose}" />
+                    </HorizontalStackLayout>
+                    <Label Text="{Binding ConflictMessage}"
+                           FontSize="12"
+                           TextColor="{StaticResource TextSlate100}" />
+                    <Button Text="サーバーの最新設定を再読込"
+                            Command="{Binding ReloadFromServerCommand}"
+                            BackgroundColor="{StaticResource StatusRose}"
+                            TextColor="{StaticResource TextSlate100}"
+                            FontSize="11"
+                            FontAttributes="Bold"
+                            CornerRadius="6"
+                            HeightRequest="32"
+                            HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 保存結果・端末反映待ち案内バナー -->
+            <Border IsVisible="{Binding SaveOutcomeNotice, Converter={x:Null}}"
+                    StrokeShape="RoundRectangle 12"
+                    Stroke="{StaticResource StatusGreen}"
+                    BackgroundColor="#064E3B"
+                    Padding="14">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="サーバー保存完了"
+                           FontSize="13"
+                           FontAttributes="Bold"
+                           TextColor="{StaticResource StatusGreen}" />
+                    <Label Text="{Binding SaveOutcomeNotice}"
+                           FontSize="11"
+                           TextColor="{StaticResource TextSlate100}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 基本情報カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="18">
+                <VerticalStackLayout Spacing="14">
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="📝" FontSize="18" />
+                        <Label Text="グループ基本情報"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}" />
+                    </HorizontalStackLayout>
+
+                    <!-- グループ名 -->
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="グループ名 (ラベル)" FontSize="12" TextColor="{StaticResource TextSlate400}" />
+                        <Entry Text="{Binding Label}"
+                               Placeholder="例: 朝のアラーム"
+                               TextColor="{StaticResource TextSlate100}"
+                               PlaceholderColor="{StaticResource TextSlate500}"
+                               BackgroundColor="{StaticResource ChipBackground}"
+                               HeightRequest="42" />
+                    </VerticalStackLayout>
+
+                    <!-- 有効 / 無効 スイッチ -->
+                    <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                        <Label Text="このグループを有効にする"
+                               FontSize="13"
+                               TextColor="{StaticResource TextSlate200}"
+                               VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding Enabled}"
+                                OnColor="{StaticResource BrandCyan}" />
+                    </Grid>
+
+                    <!-- 祝日除外 スイッチ -->
+                    <Grid ColumnDefinitions="*, Auto" VerticalOptions="Center">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="祝日を除外"
+                                   FontSize="13"
+                                   TextColor="{StaticResource TextSlate200}" />
+                            <Label Text="日本の祝日および振替休日はアラームをスキップ"
+                                   FontSize="11"
+                                   TextColor="{StaticResource TextSlate500}" />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding ExcludeHolidays}"
+                                OnColor="{StaticResource BrandCyan}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- スケジュール設定カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="18">
+                <VerticalStackLayout Spacing="14">
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="📅" FontSize="18" />
+                        <Label Text="繰り返し・スケジュール"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}" />
+                    </HorizontalStackLayout>
+
+                    <!-- 曜日選択 (月〜日) -->
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="繰り返し曜日" FontSize="12" TextColor="{StaticResource TextSlate400}" />
+                        <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="月" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DayMonday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="火" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DayTuesday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="水" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DayWednesday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="木" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DayThursday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="金" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DayFriday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="土" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DaySaturday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                                <Label Text="日" FontSize="11" TextColor="{StaticResource TextSlate400}" HorizontalOptions="Center" />
+                                <CheckBox IsChecked="{Binding DaySunday}" Color="{StaticResource BrandCyan}" />
+                            </VerticalStackLayout>
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 配信先端末と個別設定カード -->
+            <Border StrokeShape="RoundRectangle 16"
+                    Stroke="{StaticResource CardBorderDark}"
+                    BackgroundColor="{StaticResource CardDark}"
+                    Padding="18">
+                <VerticalStackLayout Spacing="14">
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="🎯" FontSize="18" />
+                        <Label Text="端末別設定 (複数端末ごと時刻・音・音量)"
+                               FontSize="15"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextSlate100}" />
+                    </HorizontalStackLayout>
+
+                    <!-- 端末追加コントロール -->
+                    <Grid ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                        <Picker Grid.Column="0"
+                                ItemsSource="{Binding AvailableDevices}"
+                                ItemDisplayBinding="{Binding DisplayName}"
+                                SelectedItem="{Binding SelectedDeviceToAdd}"
+                                TextColor="{StaticResource TextSlate100}"
+                                Title="追加する端末を選択"
+                                TitleColor="{StaticResource TextSlate400}"
+                                BackgroundColor="{StaticResource ChipBackground}"
+                                HeightRequest="40" />
+                        <Button Grid.Column="1"
+                                Text="端末を追加"
+                                Command="{Binding AddTargetCommand}"
+                                BackgroundColor="{StaticResource BrandCyan}"
+                                TextColor="#090D16"
+                                FontAttributes="Bold"
+                                FontSize="11"
+                                CornerRadius="6"
+                                HeightRequest="40"
+                                Padding="12,0" />
+                    </Grid>
+
+                    <!-- 配信先端末一覧 -->
+                    <CollectionView ItemsSource="{Binding Targets}" SelectionMode="None">
+                        <CollectionView.EmptyView>
+                            <Label Text="配信先端末が設定されていません。上のメニューから端末を追加してください。"
+                                   FontSize="12"
+                                   TextColor="{StaticResource TextSlate400}"
+                                   HorizontalOptions="Center"
+                                   Margin="0,10" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CloudAlarmTargetItemViewModel">
+                                <Border StrokeShape="RoundRectangle 12"
+                                        Stroke="{StaticResource CardBorderDark}"
+                                        BackgroundColor="{StaticResource ChipBackground}"
+                                        Padding="12"
+                                        Margin="0,4">
+                                    <VerticalStackLayout Spacing="10">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <Label Grid.Column="0"
+                                                   Text="{Binding DeviceDisplayName}"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold"
+                                                   TextColor="{StaticResource TextSlate100}"
+                                                   VerticalOptions="Center" />
+                                            <Button Grid.Column="1"
+                                                    Text="削除"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CloudAlarmGroupEditViewModel}}, Path=RemoveTargetCommand}"
+                                                    CommandParameter="{Binding .}"
+                                                    BackgroundColor="#7F1D1D"
+                                                    TextColor="{StaticResource TextSlate100}"
+                                                    FontSize="10"
+                                                    CornerRadius="4"
+                                                    Padding="8,2"
+                                                    HeightRequest="26" />
+                                        </Grid>
+
+                                        <!-- 時刻設定 -->
+                                        <Grid ColumnDefinitions="Auto, *" ColumnSpacing="12" VerticalOptions="Center">
+                                            <Label Text="鳴動時刻:" FontSize="12" TextColor="{StaticResource TextSlate400}" VerticalOptions="Center" />
+                                            <TimePicker Grid.Column="1"
+                                                        Time="{Binding TimeOfDay}"
+                                                        TextColor="{StaticResource BrandCyanLight}"
+                                                        FontSize="14"
+                                                        FontAttributes="Bold"
+                                                        HorizontalOptions="Start" />
+                                        </Grid>
+
+                                        <!-- サウンドキー & 音量 -->
+                                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                                <Label Text="サウンド (キー)" FontSize="11" TextColor="{StaticResource TextSlate400}" />
+                                                <Entry Text="{Binding SoundKey}"
+                                                       TextColor="{StaticResource TextSlate100}"
+                                                       BackgroundColor="#0F172A"
+                                                       HeightRequest="36" />
+                                            </VerticalStackLayout>
+
+                                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                <Label Text="{Binding Volume, StringFormat='音量: {0}%'}" FontSize="11" TextColor="{StaticResource TextSlate400}" />
+                                                <Slider Minimum="0"
+                                                        Maximum="100"
+                                                        Value="{Binding Volume}"
+                                                        MinimumTrackColor="{StaticResource BrandCyan}"
+                                                        ThumbColor="{StaticResource BrandCyanLight}" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+
+                                        <!-- バイブレーション & 有効 -->
+                                        <Grid ColumnDefinitions="*, *" ColumnSpacing="10">
+                                            <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                                                <CheckBox IsChecked="{Binding Vibrate}" Color="{StaticResource BrandCyan}" />
+                                                <Label Text="振動 (バイブ)" FontSize="12" TextColor="{StaticResource TextSlate200}" VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                                <CheckBox IsChecked="{Binding Enabled}" Color="{StaticResource BrandCyan}" />
+                                                <Label Text="端末鳴動有効" FontSize="12" TextColor="{StaticResource TextSlate200}" VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- エラーメッセージ -->
+            <Label Text="{Binding ErrorMessage}"
+                   FontSize="12"
+                   TextColor="{StaticResource StatusRose}"
+                   HorizontalOptions="Center"
+                   IsVisible="{Binding ErrorMessage, Converter={x:Null}}" />
+
+            <!-- 保存・キャンセルボタン -->
+            <HorizontalStackLayout Spacing="12" HorizontalOptions="Center" Margin="0,8,0,24">
+                <Button Text="クラウドへ保存"
+                        Command="{Binding SaveCommand}"
+                        BackgroundColor="{StaticResource BrandCyan}"
+                        TextColor="#090D16"
+                        FontAttributes="Bold"
+                        CornerRadius="8"
+                        HeightRequest="42"
+                        Padding="24,0" />
+
+                <Button Text="キャンセル"
+                        Command="{Binding CancelCommand}"
+                        BackgroundColor="{StaticResource ChipBackground}"
+                        TextColor="{StaticResource TextSlate200}"
+                        CornerRadius="8"
+                        HeightRequest="42"
+                        Padding="20,0" />
+            </HorizontalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
