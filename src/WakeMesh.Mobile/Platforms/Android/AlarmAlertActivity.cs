@@ -10,7 +10,7 @@ using WakeMesh.Mobile.Services;
 namespace WakeMesh.Mobile.Platforms.Android;
 
 [Activity(
-    Label = "WakeMesh 鳴動中",
+    Label = "アラーム",
     Theme = "@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen",
     ShowWhenLocked = true,
     TurnScreenOn = true,
@@ -64,18 +64,19 @@ public sealed class AlarmAlertActivity : Activity
                 ViewGroup.LayoutParams.MatchParent,
                 ViewGroup.LayoutParams.MatchParent)
         };
-        rootLayout.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#0B0F19"));
+        rootLayout.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#0F1012"));
         rootLayout.SetGravity(GravityFlags.CenterHorizontal);
-        rootLayout.SetPadding(48, 64, 48, 64);
+        var pagePadding = Dp(16);
+        rootLayout.SetPadding(pagePadding, Dp(20), pagePadding, Dp(20));
 
         // Header Title
         var titleView = new TextView(this)
         {
-            Text = "WakeMesh アラーム鳴動中",
+            Text = "アラーム",
             TextSize = 16,
             Gravity = GravityFlags.Center
         };
-        titleView.SetTextColor(global::Android.Graphics.Color.ParseColor("#94A3B8"));
+        titleView.SetTextColor(global::Android.Graphics.Color.ParseColor("#B7B3AA"));
         rootLayout.AddView(titleView);
 
         // Large Clock Display
@@ -85,20 +86,20 @@ public sealed class AlarmAlertActivity : Activity
             TextSize = 64,
             Gravity = GravityFlags.Center
         };
-        _timeView.SetTextColor(global::Android.Graphics.Color.White);
+        _timeView.SetTextColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
         _timeView.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
-        _timeView.SetPadding(0, 24, 0, 16);
+        _timeView.SetPadding(0, Dp(24), 0, Dp(16));
         rootLayout.AddView(_timeView);
 
         // DND Disclaimer Notice
         var dndNotice = new TextView(this)
         {
-            Text = "※ マナーモード・おやすみ時間設定等の端末ポリシーにより音量動作が制限される場合があります",
-            TextSize = 11,
+            Text = "マナーモードやおやすみ時間など、端末の設定で音量が制限される場合があります",
+            TextSize = 13,
             Gravity = GravityFlags.Center
         };
-        dndNotice.SetTextColor(global::Android.Graphics.Color.ParseColor("#64748B"));
-        dndNotice.SetPadding(0, 0, 0, 24);
+        dndNotice.SetTextColor(global::Android.Graphics.Color.ParseColor("#8F8B83"));
+        dndNotice.SetPadding(0, 0, 0, Dp(24));
         rootLayout.AddView(dndNotice);
 
         // Dynamic Alarms Container
@@ -119,7 +120,7 @@ public sealed class AlarmAlertActivity : Activity
                 ViewGroup.LayoutParams.MatchParent,
                 ViewGroup.LayoutParams.WrapContent)
         };
-        bottomLayout.SetPadding(0, 32, 0, 0);
+        bottomLayout.SetPadding(0, Dp(24), 0, 0);
 
         // 一括停止ボタン (Dismiss All)
         var dismissAllButton = new global::Android.Widget.Button(this)
@@ -127,9 +128,14 @@ public sealed class AlarmAlertActivity : Activity
             Text = "長押しですべて停止",
             TextSize = 16
         };
-        dismissAllButton.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#E11D48"));
-        dismissAllButton.SetTextColor(global::Android.Graphics.Color.White);
-        dismissAllButton.SetPadding(0, 28, 0, 28);
+        dismissAllButton.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#212327"));
+        dismissAllButton.SetMinHeight(Dp(64));
+        dismissAllButton.SetTextColor(global::Android.Graphics.Color.ParseColor("#F2766B"));
+        dismissAllButton.SetPadding(0, Dp(12), 0, Dp(12));
+        var allStopBackground = new global::Android.Graphics.Drawables.GradientDrawable();
+        allStopBackground.SetColor(global::Android.Graphics.Color.ParseColor("#212327"));
+        allStopBackground.SetStroke(Dp(2), global::Android.Graphics.Color.ParseColor("#F2766B"));
+        dismissAllButton.Background = allStopBackground;
         dismissAllButton.Click += (s, e) =>
         {
             Toast.MakeText(this, "誤停止防止のため、長押しでアラームを停止します", ToastLength.Short)?.Show();
@@ -144,7 +150,8 @@ public sealed class AlarmAlertActivity : Activity
         };
         bottomLayout.AddView(dismissAllButton);
 
-        rootLayout.AddView(bottomLayout);
+        if (WakeMeshAlarmService.RingManager.GetRingingAlarms().Count >= 2)
+            rootLayout.AddView(bottomLayout);
 
         SetContentView(rootLayout);
         RefreshRingingAlarmsList();
@@ -172,6 +179,8 @@ public sealed class AlarmAlertActivity : Activity
         }
     }
 
+    private int Dp(int value) => (int)(value * Resources!.DisplayMetrics!.Density + 0.5f);
+
     private void AddAlarmCard(ActiveRingingAlarm alarm)
     {
         var card = new LinearLayout(this)
@@ -181,16 +190,16 @@ public sealed class AlarmAlertActivity : Activity
                 ViewGroup.LayoutParams.MatchParent,
                 ViewGroup.LayoutParams.WrapContent)
         };
-        card.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#1E293B"));
-        card.SetPadding(32, 24, 32, 24);
+        card.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#17181B"));
+        card.SetPadding(Dp(16), Dp(16), Dp(16), Dp(16));
 
         var nameView = new TextView(this)
         {
             Text = alarm.AlarmName,
-            TextSize = 20,
+            TextSize = 22,
             Gravity = GravityFlags.Center
         };
-        nameView.SetTextColor(global::Android.Graphics.Color.ParseColor("#38BDF8"));
+        nameView.SetTextColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
         nameView.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
         card.AddView(nameView);
 
@@ -202,17 +211,17 @@ public sealed class AlarmAlertActivity : Activity
                 ViewGroup.LayoutParams.MatchParent,
                 ViewGroup.LayoutParams.WrapContent)
         };
-        buttonsRow.SetPadding(0, 16, 0, 0);
+        buttonsRow.SetPadding(0, Dp(16), 0, 0);
 
         // Snooze button
         var snoozeBtn = new global::Android.Widget.Button(this)
         {
             Text = $"スヌーズ ({alarm.SnoozeMinutes}分)",
-            TextSize = 14,
-            LayoutParameters = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1.0f)
+            TextSize = 15,
+            LayoutParameters = new LinearLayout.LayoutParams(0, Dp(64), 1.0f)
         };
-        snoozeBtn.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#334155"));
-        snoozeBtn.SetTextColor(global::Android.Graphics.Color.ParseColor("#38BDF8"));
+        snoozeBtn.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#212327"));
+        snoozeBtn.SetTextColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
         snoozeBtn.Click += (s, e) =>
         {
             var serviceIntent = new Intent(this, typeof(WakeMeshAlarmService));
@@ -236,7 +245,7 @@ public sealed class AlarmAlertActivity : Activity
         // Spacer
         var spacer = new global::Android.Views.View(this)
         {
-            LayoutParameters = new LinearLayout.LayoutParams(16, ViewGroup.LayoutParams.MatchParent)
+            LayoutParameters = new LinearLayout.LayoutParams(Dp(12), ViewGroup.LayoutParams.MatchParent)
         };
         buttonsRow.AddView(spacer);
 
@@ -244,11 +253,12 @@ public sealed class AlarmAlertActivity : Activity
         var stopBtn = new global::Android.Widget.Button(this)
         {
             Text = "停止",
-            TextSize = 14,
-            LayoutParameters = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1.0f)
+            TextSize = 20,
+            LayoutParameters = new LinearLayout.LayoutParams(0, Dp(64), 1.0f)
         };
-        stopBtn.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#7F1D1D"));
-        stopBtn.SetTextColor(global::Android.Graphics.Color.White);
+        stopBtn.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
+        stopBtn.SetTextColor(global::Android.Graphics.Color.ParseColor("#0F1012"));
+        stopBtn.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
         stopBtn.Click += (s, e) =>
         {
             var serviceIntent = new Intent(this, typeof(WakeMeshAlarmService));
@@ -272,7 +282,7 @@ public sealed class AlarmAlertActivity : Activity
         var marginParams = new LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MatchParent,
             ViewGroup.LayoutParams.WrapContent);
-        marginParams.SetMargins(0, 8, 0, 8);
+        marginParams.SetMargins(0, Dp(8), 0, Dp(8));
         card.LayoutParameters = marginParams;
 
         _alarmsContainer?.AddView(card);

@@ -20,7 +20,16 @@ public sealed class CloudAlarmGroupItemViewModel : ViewModelBase
     public bool ExcludeHolidays => _dto.ExcludeHolidays;
     public IReadOnlyList<CloudAlarmTargetItemViewModel> Targets => _targets;
 
-    public string ServerStatusText => $"サーバー保存済み (v{Version})";
+    public string ServerStatusText => $"サーバーに保存済み（バージョン{Version}）";
+
+    /// <summary>
+    /// T80 P0-9: true when at least one target device has not applied this group yet, so the view can
+    /// show the warn tag "未反映の端末あり". Retired/revoked devices are not counted (they will never
+    /// apply it), and an unverified projection is not reported as pending.
+    /// </summary>
+    public bool HasUnappliedTargets => _targets.Any(t =>
+        string.Equals(t.ReflectionStateKey, "pending", StringComparison.Ordinal) ||
+        string.Equals(t.ReflectionStateKey, "warn", StringComparison.Ordinal));
 
     public string DaysSummary
     {
@@ -60,7 +69,7 @@ public sealed class CloudAlarmGroupItemViewModel : ViewModelBase
 
     public string HolidaySummary => ExcludeHolidays ? "祝日除外: 有効" : "祝日除外: 無効";
 
-    public string TargetsSummary => $"{_targets.Count} 台の端末に配信";
+    public string TargetsSummary => $"アラームを鳴らす端末: {_targets.Count} 台";
 
     public CloudAlarmGroupItemViewModel(
         AlarmGroupDto dto,
@@ -80,22 +89,11 @@ public sealed class CloudAlarmGroupItemViewModel : ViewModelBase
                 var vm = CloudAlarmTargetItemViewModel.FromDto(t, name);
                 if (deviceStatuses != null && deviceStatuses.TryGetValue(t.DeviceId, out var status))
                 {
-                    if (string.Equals(status.RetirementState, "retired", StringComparison.OrdinalIgnoreCase))
-                    {
-                        vm.ReflectionStatusText = "端末退役済み";
-                    }
-                    else if (string.Equals(status.RetirementState, "revoked", StringComparison.OrdinalIgnoreCase))
-                    {
-                        vm.ReflectionStatusText = "端末取消済み (未確認)";
-                    }
-                    else if (status.AppliedRevision >= status.DesiredRevision && status.DesiredRevision > 0)
-                    {
-                        vm.ReflectionStatusText = $"適用報告済み (ACK済: rev {status.AppliedRevision})";
-                    }
-                    else
-                    {
-                        vm.ReflectionStatusText = $"反映待ち (最新 rev {status.DesiredRevision} / 適用 rev {status.AppliedRevision})";
-                    }
+                    // T80 P0-9: one judgement for both the wording and the mark, shared with the device
+                    // row, so revokedUnconfirmed / retiring are never reported as a pending reflection.
+                    var device = new CloudDeviceItemViewModel(status);
+                    vm.ReflectionStateKey = device.StateKey;
+                    vm.ReflectionStatusText = device.SyncStatusText;
                 }
                 targetList.Add(vm);
             }

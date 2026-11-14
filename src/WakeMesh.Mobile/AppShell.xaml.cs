@@ -20,6 +20,7 @@ public partial class AppShell : Shell
         InitializeComponent();
         Routing.RegisterRoute(nameof(AlarmEditPage), typeof(AlarmEditPage));
         Routing.RegisterRoute(nameof(CloudAlarmGroupEditPage), typeof(CloudAlarmGroupEditPage));
+        Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
 
         Loaded += OnLoaded;
     }

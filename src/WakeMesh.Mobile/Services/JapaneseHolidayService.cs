@@ -39,7 +39,7 @@ public sealed class JapaneseHolidayService : IHolidayService
         {
             if (_calendar is null)
             {
-                return _warningMessage ?? "祝日データ未取得 (鳴動優先)";
+                return _warningMessage ?? "祝日情報が未取得です（祝日もアラーム対象）";
             }
 
             var coverage = $"{_calendar.CoverageStartInclusive:yyyy/MM/dd}〜{_calendar.CoverageEndInclusive:yyyy/MM/dd}";
@@ -47,7 +47,7 @@ public sealed class JapaneseHolidayService : IHolidayService
             {
                 return $"{_warningMessage} [現行データ: {coverage}]";
             }
-            return $"祝日データ適用済み ({coverage}、※最終祝日以降の年末はCore仕様上未判定・鳴動優先)";
+            return $"祝日データ適用済み ({coverage}、※最終祝日以降の年末はCore仕様上未判定・祝日もアラーム対象)";
         }
     }
 
@@ -86,7 +86,7 @@ public sealed class JapaneseHolidayService : IHolidayService
         else
         {
             _calendar = null;
-            _warningMessage ??= "祝日データ未取得 (鳴動優先)";
+            _warningMessage ??= "祝日情報が未取得です（祝日もアラーム対象）";
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class JapaneseHolidayService : IHolidayService
         else
         {
             _calendar = null;
-            _warningMessage ??= "祝日データ未取得 (鳴動優先)";
+            _warningMessage ??= "祝日情報が未取得です（祝日もアラーム対象）";
         }
     }
 
@@ -172,7 +172,7 @@ public sealed class JapaneseHolidayService : IHolidayService
             // Maintain existing data on failure, do not wipe
             _warningMessage = _calendar is not null
                 ? $"祝日データ更新失敗 (既存データ維持): {ex.Message}"
-                : $"祝日データ取得失敗 (鳴動優先): {ex.Message}";
+                : $"祝日データ取得失敗（祝日もアラーム対象）: {ex.Message}";
             return false;
         }
     }

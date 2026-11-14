@@ -162,7 +162,7 @@ public sealed class CloudManagementVerticalSliceTests : IClassFixture<CloudUiTes
         // Verify UI reflections show applied status
         await vm.LoadDataCommand.ExecuteAsync(null);
         var currentDevItem = vm.Devices.First(d => d.Id == currentDeviceId);
-        Assert.Contains("適用報告済み (ACK済", currentDevItem.SyncStatusText);
+        Assert.Contains("適用の報告あり", currentDevItem.SyncStatusText);
 
         // 10. Step 8: ETag 412 Conflict handling
         // Modify group on server directly behind the edit VM's back
@@ -460,13 +460,14 @@ public sealed class CloudManagementVerticalSliceTests : IClassFixture<CloudUiTes
         await vm.RetireDeviceCommand.ExecuteAsync(dev2Id);
         var retiredItem = vm.Devices.First(d => d.Id == dev2Id);
         Assert.True(retiredItem.IsRetired);
-        Assert.Contains("退役", retiredItem.SyncStatusText);
+        Assert.Contains("登録解除", retiredItem.SyncStatusText);
 
         // 3. Revoke device 2 via UI command
         await vm.RevokeDeviceCommand.ExecuteAsync(dev2Id);
         var revokedItem = vm.Devices.First(d => d.Id == dev2Id);
         Assert.True(revokedItem.IsRevoked);
-        Assert.Contains("取消", revokedItem.SyncStatusText);
+        // T88 copy-map: 即時取消 → 接続を無効にする (the forced server-side rejection is unchanged)
+        Assert.Contains("接続を無効", revokedItem.SyncStatusText);
     }
 
     [Fact]

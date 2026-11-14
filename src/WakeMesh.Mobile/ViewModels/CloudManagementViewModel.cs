@@ -30,6 +30,7 @@ public sealed class CloudManagementViewModel : ViewModelBase
     private string? _statusMessage;
     private string? _lastSyncStatusMessage;
     private string? _lastSyncTimeText;
+    private string _lastSyncStateKey = "unknown";
 
     private bool _isDeviceListError;
     private string? _deviceListErrorMessage;
@@ -70,9 +71,15 @@ public sealed class CloudManagementViewModel : ViewModelBase
         AuthState.SignedOut => "サインアウト中 (サインインが必要です)",
         AuthState.SigningIn => "サインイン処理中...",
         AuthState.SignedIn => "サインイン済み (接続有効)",
-        AuthState.ReauthRequired => "再認証待ち",
+        AuthState.ReauthRequired => "サインインし直してください",
         _ => "未認証"
     };
+
+    /// <summary>
+    /// T80 P1-1: driven by the real authentication state (not by the configured flag), so the cloud
+    /// banner can ask for a new sign-in instead of showing a generic unconfigured state.
+    /// </summary>
+    public bool IsReauthRequired => _authService.State == AuthState.ReauthRequired;
 
     public bool IsRegistered
     {
@@ -150,6 +157,16 @@ public sealed class CloudManagementViewModel : ViewModelBase
         set => OnUiThread(() => SetProperty(ref _lastSyncTimeText, value));
     }
 
+    /// <summary>
+    /// T99: the mark next to the sync message follows the last sync outcome (T80 §4 keys) instead of
+    /// a fixed "pending". Only this view model may set it; the page just binds to it.
+    /// </summary>
+    public string LastSyncStateKey
+    {
+        get => _lastSyncStateKey;
+        private set => OnUiThread(() => SetProperty(ref _lastSyncStateKey, value));
+    }
+
     public bool IsDeviceListError
     {
         get => _isDeviceListError;
@@ -175,7 +192,7 @@ public sealed class CloudManagementViewModel : ViewModelBase
     }
 
     public string FcmNoticeText =>
-        "※ FCMプッシュ通知: 未接続\n現在、同期はアプリ前面復帰時および手動同期ボタンでのみ実行されます。バックグラウンドリアルタイム同期は未完了です。";
+        "プッシュ通知は未接続です。現在、同期はアプリを前面に戻したときと、手動で同期したときだけ実行されます。バックグラウンドでのリアルタイム同期は未完了です。";
 
     public ObservableCollection<CloudDeviceItemViewModel> Devices { get; } = new();
     public ObservableCollection<CloudAlarmGroupItemViewModel> AlarmGroups { get; } = new();
@@ -345,10 +362,10 @@ public sealed class CloudManagementViewModel : ViewModelBase
                 var result = await _cloudService.RetireDeviceAsync(deviceId).ConfigureAwait(false);
                 if (!result.IsSuccess)
                 {
-                    StatusMessage = $"退役処理失敗: {result.Message}";
+                    StatusMessage = $"登録解除に失敗しました: {result.Message}";
                     return;
                 }
-                StatusMessage = "端末の退役処理を開始しました（取消未確認）。";
+                StatusMessage = "端末の登録解除を開始しました（端末での解除待ち）。";
                 await LoadCloudDataCoreAsync().ConfigureAwait(false);
             }
             finally
@@ -366,10 +383,10 @@ public sealed class CloudManagementViewModel : ViewModelBase
                 var result = await _cloudService.RevokeDeviceAsync(deviceId).ConfigureAwait(false);
                 if (!result.IsSuccess)
                 {
-                    StatusMessage = $"即時取消失敗: {result.Message}";
+                    StatusMessage = $"接続の無効化に失敗しました: {result.Message}";
                     return;
                 }
-                StatusMessage = "端末の即時取消を要求しました（取消未確認）。";
+                StatusMessage = "端末の接続を無効にするよう要求しました（端末のアラーム削除は未確認）。";
                 await LoadCloudDataCoreAsync().ConfigureAwait(false);
             }
             finally
@@ -437,6 +454,7 @@ public sealed class CloudManagementViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsRegistered));
         OnPropertyChanged(nameof(NotRegistered));
         OnPropertyChanged(nameof(AuthStateText));
+        OnPropertyChanged(nameof(IsReauthRequired));
         LoadDataCommand.RaiseCanExecuteChanged();
         RegisterCurrentDeviceCommand.RaiseCanExecuteChanged();
         ClearRecoveryCommand.RaiseCanExecuteChanged();
@@ -568,10 +586,22 @@ public sealed class CloudManagementViewModel : ViewModelBase
 
     private async Task RunSyncCoreAsync()
     {
+        // T99: the band shows "pending" while the cycle is in flight, then the real outcome key.
+        LastSyncStateKey = "pending";
         LastSyncStatusMessage = "同期中...";
         var outcome = await _cloudService.SyncCurrentDeviceAsync().ConfigureAwait(false);
 
         LastSyncTimeText = DateTimeOffset.Now.ToString("HH:mm:ss");
+        LastSyncStateKey = outcome.Status switch
+        {
+            DesiredSyncStatus.AppliedAcknowledged => "ok",
+            DesiredSyncStatus.ApplyFailedAcknowledged => "critical",
+            DesiredSyncStatus.ApplyIncompleteNoAck => "critical",
+            DesiredSyncStatus.TransportFailed => "warn",
+            DesiredSyncStatus.CanceledNoAck => "unknown",
+            DesiredSyncStatus.StaleRevisionSkipped => "unknown",
+            _ => "unknown"
+        };
         LastSyncStatusMessage = outcome.Status switch
         {
             DesiredSyncStatus.AppliedAcknowledged => $"同期完了 (ACK送信済: rev {outcome.Snapshot?.Revision})",

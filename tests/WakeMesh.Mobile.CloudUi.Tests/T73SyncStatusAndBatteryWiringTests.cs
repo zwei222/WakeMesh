@@ -52,26 +52,35 @@ public sealed class T73SyncStatusAndBatteryWiringTests
     public void ExistingConflictAndRetirementWording_IsPreserved()
     {
         var pending = new CloudDeviceItemViewModel(Row(5, 2, hasSuccessfulSync: true));
-        Assert.Equal("反映待ち (最新 rev 5 / 適用 rev 2)", pending.SyncStatusText);
+        // T88 copy-map: rev → バージョン (the numbers and their meaning are unchanged)
+        Assert.Equal("反映待ち（最新バージョン5 / 適用済みバージョン2）", pending.SyncStatusText);
 
         var applied = new CloudDeviceItemViewModel(Row(5, 5, hasSuccessfulSync: false));
-        Assert.Equal("適用報告済み (ACK済: rev 5)", applied.SyncStatusText);
+        // T88 copy-map: ACK/rev are internal values, the visible fact is the device's report
+        Assert.Equal("端末から適用の報告あり（バージョン5）", applied.SyncStatusText);
 
         var retired = new CloudDeviceItemViewModel(
             new DeviceListItem(Guid.NewGuid(), "Fold5", "Retiring", 0, 0, "retired", false, null, true));
-        Assert.Equal("退役処理中 (取消未確認)", retired.SyncStatusText);
+        // T88 copy-map: 退役 → 登録解除, 取消未確認 → 端末での解除待ち
+        Assert.Equal("登録解除待ち（端末での解除待ち）", retired.SyncStatusText);
     }
 
     [Fact]
     public void DiagnosticsPage_BatteryRow_HasOneButtonWiredToExistingViewModelMembers()
     {
-        var xamlPath = Path.Combine(FindMobileRoot(), "Views", "DiagnosticsPage.xaml");
+        var mobileRoot = FindMobileRoot();
+        var xamlPath = Path.Combine(mobileRoot, "Views", "DiagnosticsPage.xaml");
         var xaml = XDocument.Load(xamlPath);
         XNamespace ns = "http://schemas.microsoft.com/dotnet/2021/maui";
+        XNamespace x = "http://schemas.microsoft.com/winfx/2009/xaml";
 
         var batteryLabel = xaml.Descendants(ns + "Label")
             .Single(e => (string?)e.Attribute("Text") == "省電力・Doze回避");
-        var section = batteryLabel.Ancestors(ns + "Grid").First(); // the row Grid holding label + button
+
+        // The row is the VerticalStackLayout container that also holds the label and the state mark.
+        var section = batteryLabel.Parent!;
+        Assert.Equal("VerticalStackLayout", section.Name.LocalName);
+        Assert.Contains(section.Elements(), e => e.Name.LocalName == "StateIndicator");
 
         var buttons = section.Elements(ns + "Button").ToList();
         var button = Assert.Single(buttons);
@@ -79,17 +88,20 @@ public sealed class T73SyncStatusAndBatteryWiringTests
         Assert.Equal("{Binding BatteryActionText}", (string?)button.Attribute("Text"));
         Assert.Equal("{Binding OpenBatteryOptimizationSettingsCommand}", (string?)button.Attribute("Command"));
         Assert.Equal("{Binding CanOpenBatteryOptimizationSettings}", (string?)button.Attribute("IsEnabled"));
+        Assert.Equal("{Binding CanOpenBatteryOptimizationSettings}", (string?)button.Attribute("IsVisible"));
+        Assert.Equal("{StaticResource SecondaryButtonStyle}", (string?)button.Attribute("Style"));
 
-        // Same visual hierarchy as the sibling permission rows on this page (no new design).
-        Assert.Equal("12", (string?)button.Attribute("FontSize"));
-        Assert.Equal("36", (string?)button.Attribute("HeightRequest"));
-        Assert.Equal("8", (string?)button.Attribute("CornerRadius"));
-        Assert.Equal("{StaticResource ChipBackground}", (string?)button.Attribute("BackgroundColor"));
-        Assert.Equal("{StaticResource TextSlate100}", (string?)button.Attribute("TextColor"));
+        // Same visual hierarchy as the sibling permission rows: the 48dp target comes from the row
+        // style's MinimumHeightRequest, not from a new per-row design.
+        var style = xaml.Descendants(ns + "Style")
+            .Single(e => (string?)e.Attribute(x + "Key") == "SecondaryButtonStyle");
+        var minHeight = style.Elements(ns + "Setter")
+            .Single(e => (string?)e.Attribute("Property") == "MinimumHeightRequest");
+        Assert.True(int.Parse((string)minHeight.Attribute("Value")!) >= 48);
 
-        // The row must reserve a second row for the button exactly like the other permission rows.
-        var rowDefinitions = (string?)section.Attribute("RowDefinitions") ?? string.Empty;
-        Assert.Equal(2, rowDefinitions.Split(',').Length);
+        // The Doze entry guard stays: the button is only offered while the app is still optimized.
+        var vmSource = File.ReadAllText(Path.Combine(mobileRoot, "ViewModels", "DiagnosticsViewModel.cs"));
+        Assert.Contains("CanOpenBatteryOptimizationSettings => _permissionService.OsApiLevel >= 23 && !IsBatteryOptimizationIgnored", vmSource);
     }
 
     [Fact]

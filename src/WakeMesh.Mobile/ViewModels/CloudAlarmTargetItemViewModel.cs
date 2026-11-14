@@ -14,6 +14,7 @@ public sealed class CloudAlarmTargetItemViewModel : ViewModelBase
     private bool _vibrate;
     private bool _enabled;
     private string _reflectionStatusText = "未同期";
+    private string _reflectionStateKey = "unknown";
 
     public Guid? Id
     {
@@ -75,6 +76,17 @@ public sealed class CloudAlarmTargetItemViewModel : ViewModelBase
     {
         get => _reflectionStatusText;
         set => SetProperty(ref _reflectionStatusText, value);
+    }
+
+    /// <summary>
+    /// T80 P0-9: mark key for this target's device, using the same exact values as
+    /// <see cref="CloudDeviceItemViewModel.StateKey"/> (ok / pending / unknown / warn / critical /
+    /// inactive). "unknown" means the device projection was not available, so no success is claimed.
+    /// </summary>
+    public string ReflectionStateKey
+    {
+        get => _reflectionStateKey;
+        set => SetProperty(ref _reflectionStateKey, value);
     }
 
     public CloudAlarmTargetItemViewModel(

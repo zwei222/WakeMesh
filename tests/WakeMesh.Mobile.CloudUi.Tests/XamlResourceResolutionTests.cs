@@ -23,7 +23,8 @@ public sealed class XamlResourceResolutionTests
         AddDeclaredKeys(appResources, globalKeys);
 
         var failures = new List<string>();
-        foreach (var pagePath in Directory.EnumerateFiles(Path.Combine(mobileRoot, "Views"), "*.xaml"))
+        var pagePaths = Directory.EnumerateFiles(Path.Combine(mobileRoot, "Views"), "*.xaml").Append(Path.Combine(mobileRoot, "AppShell.xaml"));
+        foreach (var pagePath in pagePaths)
         {
             var page = XDocument.Load(pagePath);
             var pageKeys = new HashSet<string>(globalKeys, StringComparer.Ordinal);

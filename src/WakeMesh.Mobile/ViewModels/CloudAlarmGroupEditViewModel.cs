@@ -197,7 +197,7 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
 
             if (Targets.Count == 0)
             {
-                ErrorMessage = "少なくとも1台の配信先端末を設定してください。";
+                ErrorMessage = "アラームを鳴らす端末を1台以上設定してください。";
                 return;
             }
 

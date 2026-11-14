@@ -228,7 +228,8 @@ public class T7MobileWiringTests : IDisposable
         Assert.True(vm.IsRinging);
         Assert.Single(vm.RingingAlarms);
         Assert.Equal("alarm-2", vm.RingingAlarms[0].AlarmId);
-        Assert.Contains("薬の服用 が鳴動中", vm.RingingBannerTitle);
+        // T88 copy-map: 鳴動中 → のアラームが鳴っています (the fact is unchanged)
+        Assert.Contains("薬の服用 のアラームが鳴っています", vm.RingingBannerTitle);
 
         // Dismiss all
         await vm.DismissAllRingingCommand.ExecuteAsync(null);
@@ -290,7 +291,8 @@ public class T7MobileWiringTests : IDisposable
         Assert.Contains("2026/01/01", vm.HolidayCoverageNotice);
         Assert.Contains("2026/11/23", vm.HolidayCoverageNotice);
         Assert.Contains("カバレッジ外", vm.HolidayCoverageNotice);
-        Assert.Contains("鳴動優先", vm.HolidayCoverageNotice);
+        // T88 copy-map: 鳴動優先 → 祝日もアラーム対象 (fail-open is still stated)
+        Assert.Contains("祝日もアラーム対象", vm.HolidayCoverageNotice);
     }
 
     [Fact]

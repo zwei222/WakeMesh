@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Microsoft.Maui.Controls;
 using WakeMesh.Mobile.Models;
 using WakeMesh.Mobile.ViewModels;
@@ -33,8 +34,42 @@ public partial class AlarmEditPage : ContentPage, IQueryAttributable
         }
     }
 
-    private void OnSelectWeekly(object? sender, EventArgs e) => _viewModel.IsWeekly = true;
-    private void OnSelectOnce(object? sender, EventArgs e) => _viewModel.IsOnce = true;
+    private void OnSelectWeekly(object? sender, EventArgs e) { _viewModel.IsWeekly = true; UpdateWeekdayLayout(Width); }
+    private void OnSelectOnce(object? sender, EventArgs e) { _viewModel.IsWeekly = false; UpdateWeekdayLayout(Width); }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+
+        // T99: the weekday block follows the repeat mode even when it changes from outside this page
+        // (loading an alarm, the "1回" suggestion). Subscribe for the page's visible lifetime only,
+        // and never write the bound properties back from here.
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        UpdateWeekdayLayout(Width);
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AlarmEditViewModel.IsWeekly))
+        {
+            UpdateWeekdayLayout(Width);
+        }
+    }
+
+    protected override void OnSizeAllocated(double width, double height)
+    {
+        base.OnSizeAllocated(width, height);
+        UpdateWeekdayLayout(width);
+    }
+
+    private void UpdateWeekdayLayout(double width)
+    {
+        if (WeekdaysWide is null || WeekdaysNarrow is null) return;
+        WeekdaysWide.IsVisible = _viewModel.IsWeekly && width >= 480;
+        WeekdaysNarrow.IsVisible = _viewModel.IsWeekly && width < 480;
+    }
 
     private void OnToggleMonday(object? sender, EventArgs e) => _viewModel.RepeatMonday = !_viewModel.RepeatMonday;
     private void OnToggleTuesday(object? sender, EventArgs e) => _viewModel.RepeatTuesday = !_viewModel.RepeatTuesday;
@@ -52,6 +87,7 @@ public partial class AlarmEditPage : ContentPage, IQueryAttributable
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
         if (_viewModel.IsPlayingPreview)
         {
             _viewModel.TogglePreviewSoundCommand.Execute(null);

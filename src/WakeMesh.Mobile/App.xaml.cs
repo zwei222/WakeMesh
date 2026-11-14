@@ -14,12 +14,14 @@ public partial class App : Application
 	public App()
 	{
 		InitializeComponent();
+		UserAppTheme = AppTheme.Dark;
 	}
 
 	public App(IServiceProvider services)
 	{
 		_services = services;
 		InitializeComponent();
+		UserAppTheme = AppTheme.Dark;
 	}
 
 	protected override Window CreateWindow(IActivationState? activationState)

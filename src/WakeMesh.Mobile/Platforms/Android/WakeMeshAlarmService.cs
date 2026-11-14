@@ -392,8 +392,8 @@ public sealed class WakeMeshAlarmService : Service
 
         var first = ringing[0];
         var title = ringing.Count == 1
-            ? "WakeMesh アラーム鳴動中"
-            : $"WakeMesh アラーム鳴動中 ({ringing.Count}件同時)";
+            ? "アラームが鳴っています"
+            : $"アラームが鳴っています ({ringing.Count}件同時)";
         var content = ringing.Count == 1
             ? $"{first.AlarmName} が鳴っています"
             : string.Join(", ", ringing.Select(r => r.AlarmName));
@@ -541,10 +541,10 @@ public sealed class WakeMeshAlarmService : Service
         {
             var channel = new NotificationChannel(
                 ChannelId,
-                "WakeMesh アラーム鳴動通知",
+                "アラームの通知",
                 NotificationImportance.Max)
             {
-                Description = "目覚ましアラームの鳴動と操作を行う重要通知",
+                Description = "目覚ましアラームの通知と停止操作を行う重要通知",
                 LockscreenVisibility = NotificationVisibility.Public
             };
             channel.EnableVibration(true);

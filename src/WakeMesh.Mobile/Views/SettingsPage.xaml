@@ -4,204 +4,60 @@
              xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
              x:Class="WakeMesh.Mobile.Views.SettingsPage"
              x:DataType="vm:SettingsViewModel"
-             Title="クラウド・接続設定"
-             BackgroundColor="{StaticResource SurfaceDark}">
-
+             Title="接続アカウント" BackgroundColor="{StaticResource Bg}">
+    <ContentPage.Resources>
+        <Style x:Key="SecondaryAction" TargetType="Button"><Setter Property="BackgroundColor" Value="Transparent"/><Setter Property="TextColor" Value="{StaticResource Ink}"/><Setter Property="BorderColor" Value="{StaticResource LineStrong}"/><Setter Property="BorderWidth" Value="1"/><Setter Property="MinimumHeightRequest" Value="48"/></Style>
+        <Style x:Key="PrimaryAction" TargetType="Button"><Setter Property="BackgroundColor" Value="{StaticResource Ink}"/><Setter Property="TextColor" Value="{StaticResource OnInk}"/><Setter Property="MinimumHeightRequest" Value="48"/></Style>
+        <Style x:Key="DangerAction" TargetType="Button"><Setter Property="BackgroundColor" Value="Transparent"/><Setter Property="TextColor" Value="{StaticResource Crit}"/><Setter Property="BorderColor" Value="{StaticResource Crit}"/><Setter Property="BorderWidth" Value="1"/><Setter Property="MinimumHeightRequest" Value="48"/></Style>
+    </ContentPage.Resources>
     <ScrollView>
-        <VerticalStackLayout MaximumWidthRequest="600"
-                             Padding="20"
-                             Spacing="18"
-                             HorizontalOptions="Center">
-
-            <!-- 処理中インジケータ -->
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}"
-                               Color="{StaticResource BrandCyanLight}"
-                               HeightRequest="24"
-                               HorizontalOptions="Center" />
-
-            <!-- クラウド認証状態カード -->
-            <Border StrokeShape="RoundRectangle 16"
-                    Stroke="{StaticResource CardBorderDark}"
-                    BackgroundColor="{StaticResource CardDark}"
-                    Padding="18">
-                <VerticalStackLayout Spacing="12">
-                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                        <Label Text="☁️" FontSize="18" />
-                        <Label Text="Microsoft Entra ID 認証状態"
-                               FontSize="15"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource TextSlate100}" />
-                    </HorizontalStackLayout>
-
-                    <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto" RowSpacing="8" ColumnSpacing="12">
-                        <Label Grid.Row="0" Grid.Column="0" Text="認証ステータス:" FontSize="13" TextColor="{StaticResource TextSlate400}" />
-                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding AuthStateText}" FontSize="13" TextColor="{StaticResource BrandCyanLight}" FontAttributes="Bold" />
-
-                        <Label Grid.Row="1" Grid.Column="0" Text="詳細メッセージ:" FontSize="12" TextColor="{StaticResource TextSlate400}" />
-                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding StatusMessage}" FontSize="12" TextColor="{StaticResource TextSlate300}" />
-                    </Grid>
-
-                    <HorizontalStackLayout Spacing="10" Margin="0,8,0,0">
-                        <Button Text="サインイン (Microsoft)"
-                                Command="{Binding SignInCommand}"
-                                IsEnabled="{Binding CanSignIn}"
-                                BackgroundColor="{StaticResource BrandCyan}"
-                                TextColor="#090D16"
-                                FontAttributes="Bold"
-                                CornerRadius="8"
-                                HeightRequest="42" />
-
-                        <Button Text="サインアウト"
-                                Command="{Binding SignOutCommand}"
-                                IsEnabled="{Binding CanSignOut}"
-                                BackgroundColor="{StaticResource ChipBackground}"
-                                TextColor="{StaticResource TextSlate200}"
-                                CornerRadius="8"
-                                HeightRequest="42" />
-                    </HorizontalStackLayout>
-                </VerticalStackLayout>
+        <VerticalStackLayout MaximumWidthRequest="640" HorizontalOptions="Center" Padding="16" Spacing="24">
+            <Border x:Name="RebuildBand" IsVisible="{Binding IsRebuildNeeded}" BackgroundColor="{StaticResource CritSurface}" Stroke="{StaticResource Crit}" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="16">
+                <Label Text="{Binding RebuildNotice}" TextColor="{StaticResource Crit}" FontSize="15" />
             </Border>
-
-            <!-- ビルド時設定と整合性確認カード -->
-            <Border StrokeShape="RoundRectangle 16"
-                    Stroke="{StaticResource CardBorderDark}"
-                    BackgroundColor="{StaticResource CardDark}"
-                    Padding="18">
-                <VerticalStackLayout Spacing="10">
-                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                        <Label Text="🔒" FontSize="18" />
-                        <Label Text="ビルド時 Redirect URI Scheme 整合性"
-                               FontSize="15"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource TextSlate100}" />
-                    </HorizontalStackLayout>
-
-                    <Label Text="Android Manifest の IntentFilter (msal{ClientId}://auth) と MSAL 構成の一致が必要です。"
-                           FontSize="12"
-                           TextColor="{StaticResource TextSlate400}" />
-
-                    <Grid ColumnDefinitions="Auto, *" RowSpacing="6" ColumnSpacing="10">
-                        <Label Grid.Column="0" Text="ビルド時 ClientId:" FontSize="12" TextColor="{StaticResource TextSlate400}" />
-                        <Label Grid.Column="1" Text="{Binding CompileTimeClientId}" FontSize="12" TextColor="{StaticResource TextSlate200}" FontAttributes="Bold" LineBreakMode="MiddleTruncation" />
-                    </Grid>
-
-                    <!-- 不一致時の警告メッセージ -->
-                    <Border IsVisible="{Binding IsRebuildNeeded}"
-                            StrokeShape="RoundRectangle 8"
-                            Stroke="#EF4444"
-                            BackgroundColor="#2D1515"
-                            Padding="12"
-                            Margin="0,4,0,0">
-                        <Label Text="{Binding RebuildNotice}"
-                               FontSize="12"
-                               TextColor="#FCA5A5" />
-                    </Border>
-                </VerticalStackLayout>
-            </Border>
-
-            <!-- 接続パラメータ入力カード -->
-            <Border StrokeShape="RoundRectangle 16"
-                    Stroke="{StaticResource CardBorderDark}"
-                    BackgroundColor="{StaticResource CardDark}"
-                    Padding="18">
-                <VerticalStackLayout Spacing="14">
-                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                        <Label Text="⚙️" FontSize="18" />
-                        <Label Text="接続先サーバー・アプリ設定"
-                               FontSize="15"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource TextSlate100}" />
-                    </HorizontalStackLayout>
-
-                    <Label Text="※ 未設定の場合はローカル単独で正常に動作します。ユーザー名やメールアドレス等の個人情報はログ・画面へ出力されません。"
-                           FontSize="11"
-                           TextColor="{StaticResource TextSlate400}" />
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="API サーバー URL (https://...):" FontSize="12" TextColor="{StaticResource TextSlate300}" />
-                        <Entry Text="{Binding ApiBaseUrl}"
-                               Placeholder="https://api.wakemesh.example.com"
-                               TextColor="{StaticResource TextSlate100}"
-                               PlaceholderColor="{StaticResource TextSlate500}"
-                               BackgroundColor="{StaticResource InputBackground}" />
+            <VerticalStackLayout Spacing="12">
+                <Label Text="アカウント" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="{Binding AuthStateText}" FontSize="17" FontAttributes="Bold" TextColor="{StaticResource Ink}" />
+                        <Label Text="{Binding StatusMessage}" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <Button Text="サインイン" Command="{Binding SignInCommand}" IsEnabled="{Binding CanSignIn}" Style="{StaticResource PrimaryAction}" />
+                        <Button Text="サインアウト" Clicked="OnSignOutClicked" IsEnabled="{Binding CanSignOut}" Style="{StaticResource DangerAction}" />
                     </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="Android Client ID (GUID):" FontSize="12" TextColor="{StaticResource TextSlate300}" />
-                        <Entry Text="{Binding AndroidClientId}"
-                               Placeholder="00000000-0000-0000-0000-000000000000"
-                               TextColor="{StaticResource TextSlate100}"
-                               PlaceholderColor="{StaticResource TextSlate500}"
-                               BackgroundColor="{StaticResource InputBackground}" />
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="接続先" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="未設定の場合はアラームをこの端末だけで使用できます。ユーザー名などの個人情報は画面に表示されません。" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <VerticalStackLayout Spacing="4"><Label Text="API URL" FontSize="13" TextColor="{StaticResource Ink2}"/><Entry Text="{Binding ApiBaseUrl}" Placeholder="https://api.example.invalid" FontFamily="monospace" MinimumHeightRequest="48" /></VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4"><Label Text="Android Client ID" FontSize="13" TextColor="{StaticResource Ink2}"/><Entry Text="{Binding AndroidClientId}" Placeholder="00000000-0000-0000-0000-000000000000" FontFamily="monospace" MinimumHeightRequest="48" /></VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4"><Label Text="API Client ID" FontSize="13" TextColor="{StaticResource Ink2}"/><Entry Text="{Binding ApiClientId}" Placeholder="00000000-0000-0000-0000-000000000000" FontFamily="monospace" MinimumHeightRequest="48" /></VerticalStackLayout>
+                        <Label Text="{Binding ValidationMessage}" IsVisible="{Binding ValidationMessage, Converter={StaticResource StringNotEmptyToBoolConverter}}" TextColor="{StaticResource Crit}" FontSize="13" />
+                        <Button Text="保存" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryAction}" />
+                        <Label Text="接続先を変更して保存すると、この端末のサインインと端末の登録情報は削除されます。" FontSize="13" TextColor="{StaticResource Warn}" />
+                        <Button Text="設定を消去" Clicked="OnClearSettingsClicked" Style="{StaticResource DangerAction}" />
                     </VerticalStackLayout>
-
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="API Client ID (GUID):" FontSize="12" TextColor="{StaticResource TextSlate300}" />
-                        <Entry Text="{Binding ApiClientId}"
-                               Placeholder="00000000-0000-0000-0000-000000000000"
-                               TextColor="{StaticResource TextSlate100}"
-                               PlaceholderColor="{StaticResource TextSlate500}"
-                               BackgroundColor="{StaticResource InputBackground}" />
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="接続テスト" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Button Text="接続を確認" Command="{Binding CheckConnectionCommand}" Style="{StaticResource SecondaryAction}" />
+                        <Label Text="{Binding ConnectionCheckResultText}" FontSize="13" TextColor="{StaticResource Ink2}" />
                     </VerticalStackLayout>
-
-                    <!-- バリデーションエラー表示 -->
-                    <Label Text="{Binding ValidationMessage}"
-                           IsVisible="{Binding ValidationMessage, Converter={StaticResource DaySelectedColorConverter}}"
-                           TextColor="#EF4444"
-                           FontSize="12" />
-
-                    <HorizontalStackLayout Spacing="10" Margin="0,8,0,0">
-                        <Button Text="設定を保存"
-                                Command="{Binding SaveSettingsCommand}"
-                                BackgroundColor="{StaticResource BrandCyan}"
-                                TextColor="#090D16"
-                                FontAttributes="Bold"
-                                CornerRadius="8"
-                                HeightRequest="40" />
-
-                        <Button Text="設定を消去"
-                                Command="{Binding ClearSettingsCommand}"
-                                BackgroundColor="{StaticResource ChipBackground}"
-                                TextColor="{StaticResource TextSlate200}"
-                                CornerRadius="8"
-                                HeightRequest="40" />
-                    </HorizontalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+            <Button Text="ビルド時の接続情報を表示" Clicked="OnToggleTechnicalDetails" BackgroundColor="Transparent" TextColor="{StaticResource Ink}" />
+            <Border x:Name="TechnicalDetails" IsVisible="False" BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="ビルド時 Client ID" FontSize="13" TextColor="{StaticResource Ink2}" />
+                    <Label Text="{Binding CompileTimeClientId}" FontFamily="monospace" FontSize="12" TextColor="{StaticResource Ink3}" />
+                    <Label Text="Android Manifest の msal{ClientId}://auth と MSAL 構成を一致させる必要があります。" FontSize="13" TextColor="{StaticResource Ink2}" />
                 </VerticalStackLayout>
             </Border>
-
-            <!-- 手動接続確認カード -->
-            <Border StrokeShape="RoundRectangle 16"
-                    Stroke="{StaticResource CardBorderDark}"
-                    BackgroundColor="{StaticResource CardDark}"
-                    Padding="18">
-                <VerticalStackLayout Spacing="12">
-                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
-                        <Label Text="📡" FontSize="18" />
-                        <Label Text="手動接続テスト"
-                               FontSize="15"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource TextSlate100}" />
-                    </HorizontalStackLayout>
-
-                    <Label Text="設定された API サーバーへの到達確認を手動で実行します（未設定時は通信しません）。"
-                           FontSize="12"
-                           TextColor="{StaticResource TextSlate400}" />
-
-                    <Button Text="手動接続確認を実行"
-                            Command="{Binding CheckConnectionCommand}"
-                            BackgroundColor="{StaticResource ChipBackground}"
-                            TextColor="{StaticResource BrandCyanLight}"
-                            CornerRadius="8"
-                            HeightRequest="40"
-                            HorizontalOptions="Start" />
-
-                    <Label Text="{Binding ConnectionCheckResultText}"
-                           FontSize="12"
-                           TextColor="{StaticResource TextSlate200}" />
-                </VerticalStackLayout>
-            </Border>
-
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

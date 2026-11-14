@@ -32,17 +32,50 @@ public sealed class CloudDeviceItemViewModel : ViewModelBase
     public bool CanRetire => IsActive;
     public bool CanRevoke => !IsRevoked;
 
+    /// <summary>
+    /// T80 P0-9: fixed display contract for the status mark (colour + shape are chosen by the view
+    /// from these exact keys, never from a hard-coded colour).
+    /// ok / pending / unknown / warn / critical / inactive.
+    /// </summary>
+    public string StateKey
+    {
+        get
+        {
+            if (IsRetired || IsRevoked)
+            {
+                // A requested retirement/revocation the device has not confirmed yet is not "done".
+                return _raw.CancelConfirmed ? "inactive" : "warn";
+            }
+
+            if (_raw.DesiredRevision == 0 && _raw.AppliedRevision == 0)
+            {
+                return _raw.HasSuccessfulSync switch
+                {
+                    true => "ok",
+                    false => "pending",
+                    null => "unknown"
+                };
+            }
+
+            return _raw.AppliedRevision >= _raw.DesiredRevision ? "ok" : "pending";
+        }
+    }
+
     public string SyncStatusText
     {
         get
         {
             if (IsRetired)
             {
-                return _raw.CancelConfirmed ? "退役済み (取消確認済)" : "退役処理中 (取消未確認)";
+                return _raw.CancelConfirmed
+                    ? "登録解除済み"
+                    : "登録解除待ち（端末での解除待ち）";
             }
             if (IsRevoked)
             {
-                return _raw.CancelConfirmed ? "即時取消完了" : "即時取消済み (取消未確認)";
+                return _raw.CancelConfirmed
+                    ? "接続を無効にしました"
+                    : "接続を無効にしました（端末のアラーム削除は未確認）";
             }
             if (_raw.DesiredRevision == 0 && _raw.AppliedRevision == 0)
             {
@@ -57,9 +90,9 @@ public sealed class CloudDeviceItemViewModel : ViewModelBase
             }
             if (_raw.AppliedRevision >= _raw.DesiredRevision)
             {
-                return $"適用報告済み (ACK済: rev {_raw.AppliedRevision})";
+                return $"端末から適用の報告あり（バージョン{_raw.AppliedRevision}）";
             }
-            return $"反映待ち (最新 rev {_raw.DesiredRevision} / 適用 rev {_raw.AppliedRevision})";
+            return $"反映待ち（最新バージョン{_raw.DesiredRevision} / 適用済みバージョン{_raw.AppliedRevision}）";
         }
     }
 
