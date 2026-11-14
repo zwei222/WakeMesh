@@ -46,7 +46,14 @@ public sealed class CloudDeviceItemViewModel : ViewModelBase
             }
             if (_raw.DesiredRevision == 0 && _raw.AppliedRevision == 0)
             {
-                return "初期同期待ち";
+                // A zero revision is a valid acknowledged empty configuration; only claim success
+                // when the server actually projected sync evidence.
+                return _raw.HasSuccessfulSync switch
+                {
+                    true => "同期済み（設定なし）",
+                    false => "初期同期待ち",
+                    null => "初期同期待ち (同期状況未確認)"
+                };
             }
             if (_raw.AppliedRevision >= _raw.DesiredRevision)
             {

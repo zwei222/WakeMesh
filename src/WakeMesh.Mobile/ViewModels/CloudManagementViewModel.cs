@@ -15,6 +15,7 @@ public sealed class CloudManagementViewModel : ViewModelBase
     private readonly ICloudManagementService _cloudService;
     private readonly IAuthService _authService;
     private readonly ICloudNavigation _navigation;
+    private readonly IMainThreadDispatcher _dispatcher;
 
     private bool _isBusy;
     private bool _isSyncing;
@@ -38,25 +39,25 @@ public sealed class CloudManagementViewModel : ViewModelBase
     public bool IsBusy
     {
         get => _isBusy;
-        set
+        set => OnUiThread(() =>
         {
             if (SetProperty(ref _isBusy, value))
             {
                 UpdateCommandStates();
             }
-        }
+        });
     }
 
     public bool IsSyncing
     {
         get => _isSyncing;
-        set
+        set => OnUiThread(() =>
         {
             if (SetProperty(ref _isSyncing, value))
             {
                 UpdateCommandStates();
             }
-        }
+        });
     }
 
     public bool IsConfiguredAndSignedIn => _cloudService.IsConfiguredAndSignedIn;
@@ -134,43 +135,43 @@ public sealed class CloudManagementViewModel : ViewModelBase
     public string? StatusMessage
     {
         get => _statusMessage;
-        set => SetProperty(ref _statusMessage, value);
+        set => OnUiThread(() => SetProperty(ref _statusMessage, value));
     }
 
     public string? LastSyncStatusMessage
     {
         get => _lastSyncStatusMessage;
-        set => SetProperty(ref _lastSyncStatusMessage, value);
+        set => OnUiThread(() => SetProperty(ref _lastSyncStatusMessage, value));
     }
 
     public string? LastSyncTimeText
     {
         get => _lastSyncTimeText;
-        set => SetProperty(ref _lastSyncTimeText, value);
+        set => OnUiThread(() => SetProperty(ref _lastSyncTimeText, value));
     }
 
     public bool IsDeviceListError
     {
         get => _isDeviceListError;
-        private set => SetProperty(ref _isDeviceListError, value);
+        private set => OnUiThread(() => SetProperty(ref _isDeviceListError, value));
     }
 
     public string? DeviceListErrorMessage
     {
         get => _deviceListErrorMessage;
-        private set => SetProperty(ref _deviceListErrorMessage, value);
+        private set => OnUiThread(() => SetProperty(ref _deviceListErrorMessage, value));
     }
 
     public bool IsGroupListError
     {
         get => _isGroupListError;
-        private set => SetProperty(ref _isGroupListError, value);
+        private set => OnUiThread(() => SetProperty(ref _isGroupListError, value));
     }
 
     public string? GroupListErrorMessage
     {
         get => _groupListErrorMessage;
-        private set => SetProperty(ref _groupListErrorMessage, value);
+        private set => OnUiThread(() => SetProperty(ref _groupListErrorMessage, value));
     }
 
     public string FcmNoticeText =>
@@ -193,11 +194,13 @@ public sealed class CloudManagementViewModel : ViewModelBase
     public CloudManagementViewModel(
         ICloudManagementService cloudService,
         IAuthService authService,
-        ICloudNavigation? navigation = null)
+        ICloudNavigation? navigation = null,
+        IMainThreadDispatcher? dispatcher = null)
     {
         _cloudService = cloudService ?? throw new ArgumentNullException(nameof(cloudService));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _navigation = navigation ?? new MauiShellCloudNavigation();
+        _dispatcher = dispatcher ?? new ImmediateMainThreadDispatcher();
 
         _authService.StateChanged += OnAuthStateChanged;
         _cloudService.RegistrationChanged += OnRegistrationChanged;
@@ -395,6 +398,16 @@ public sealed class CloudManagementViewModel : ViewModelBase
                 IsBusy = false;
             }
         }, g => !IsBusy && IsConfiguredAndSignedIn && g != null);
+
+        // CanExecuteChanged drives IsEnabled bindings, so it must reach them on the UI thread too.
+        // (The non-generic AsyncRelayCommand lives in ViewModelBase.cs, outside this fix's file scope.)
+        foreach (var command in new IMainThreadMarshalledCommand[]
+                 {
+                     RetireDeviceCommand, RevokeDeviceCommand, DeleteGroupCommand, NavigateToEditGroupCommand
+                 })
+        {
+            command.Marshal = OnUiThread;
+        }
     }
 
     public CloudManagementViewModel(
@@ -403,6 +416,18 @@ public sealed class CloudManagementViewModel : ViewModelBase
         Action<string>? navigationHandler)
         : this(cloudService, authService, navigationHandler != null ? new ActionCloudNavigation(navigationHandler) : null)
     {
+    }
+
+    /// <summary>
+    /// Runs a UI-bound update on the main thread. Every awaited call in this view model uses
+    /// ConfigureAwait(false), so without this the ObservableCollection mutations and
+    /// PropertyChanged notifications raised after an await land on a thread-pool thread while
+    /// MAUI reads them from the UI thread (reported reload crash).
+    /// </summary>
+    private void OnUiThread(Action action)
+    {
+        if (_dispatcher.IsDispatchRequired) _dispatcher.Post(action);
+        else action();
     }
 
     private void UpdateCommandStates()
@@ -421,14 +446,17 @@ public sealed class CloudManagementViewModel : ViewModelBase
 
     private void OnAuthStateChanged(object? sender, EventArgs e)
     {
-        UpdateCommandStates();
-
-        if (!IsConfiguredAndSignedIn)
+        OnUiThread(() =>
         {
-            Devices.Clear();
-            AlarmGroups.Clear();
-            StatusMessage = "サインインが解除されました。";
-        }
+            UpdateCommandStates();
+
+            if (!IsConfiguredAndSignedIn)
+            {
+                Devices.Clear();
+                AlarmGroups.Clear();
+                StatusMessage = "サインインが解除されました。";
+            }
+        });
     }
 
     private void OnRegistrationChanged(object? sender, EventArgs e)
@@ -438,7 +466,8 @@ public sealed class CloudManagementViewModel : ViewModelBase
 
     private void OnSyncCompleted(object? sender, EventArgs e)
     {
-        LastSyncTimeText = DateTimeOffset.Now.ToString("HH:mm:ss");
+        var timeText = DateTimeOffset.Now.ToString("HH:mm:ss");
+        OnUiThread(() => LastSyncTimeText = timeText);
     }
 
     public async Task InitializeAsync()
@@ -459,6 +488,11 @@ public sealed class CloudManagementViewModel : ViewModelBase
     public async Task RefreshRegistrationStateAsync()
     {
         var reg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
+        OnUiThread(() => ApplyRegistration(reg));
+    }
+
+    private void ApplyRegistration(CloudDeviceRegistration? reg)
+    {
         if (reg != null)
         {
             IsRegistered = true;
@@ -487,45 +521,49 @@ public sealed class CloudManagementViewModel : ViewModelBase
         var devResult = await _cloudService.ListDevicesAsync().ConfigureAwait(false);
         var deviceMap = new Dictionary<Guid, string>();
         var statusMap = new Dictionary<Guid, DeviceListItem>();
+        var newDevices = new List<CloudDeviceItemViewModel>();
 
-        if (!devResult.IsSuccess)
+        if (devResult.IsSuccess)
         {
-            IsDeviceListError = true;
-            DeviceListErrorMessage = $"端末一覧取得失敗: {devResult.Message}";
-        }
-        else
-        {
-            IsDeviceListError = false;
-            DeviceListErrorMessage = null;
-            Devices.Clear();
-
             var currentId = CurrentServerDeviceId;
             foreach (var d in devResult.Value ?? Array.Empty<DeviceListItem>())
             {
                 deviceMap[d.Id] = d.DisplayName;
                 statusMap[d.Id] = d;
-                Devices.Add(new CloudDeviceItemViewModel(d, isCurrentDevice: currentId.HasValue && d.Id == currentId.Value));
+                newDevices.Add(new CloudDeviceItemViewModel(d, isCurrentDevice: currentId.HasValue && d.Id == currentId.Value));
             }
         }
 
         // 2. Fetch alarm groups
         var grpResult = await _cloudService.ListAlarmGroupsAsync().ConfigureAwait(false);
-        if (!grpResult.IsSuccess)
+        var newGroups = new List<CloudAlarmGroupItemViewModel>();
+        if (grpResult.IsSuccess)
         {
-            IsGroupListError = true;
-            GroupListErrorMessage = $"アラームグループ取得失敗: {grpResult.Message}";
-        }
-        else
-        {
-            IsGroupListError = false;
-            GroupListErrorMessage = null;
-            AlarmGroups.Clear();
-
             foreach (var g in grpResult.Value ?? Array.Empty<AlarmGroupDto>())
             {
-                AlarmGroups.Add(new CloudAlarmGroupItemViewModel(g, deviceMap, statusMap));
+                newGroups.Add(new CloudAlarmGroupItemViewModel(g, deviceMap, statusMap));
             }
         }
+
+        // Bindings only observe these collections from the UI thread.
+        OnUiThread(() =>
+        {
+            IsDeviceListError = !devResult.IsSuccess;
+            DeviceListErrorMessage = devResult.IsSuccess ? null : $"端末一覧取得失敗: {devResult.Message}";
+            if (devResult.IsSuccess)
+            {
+                Devices.Clear();
+                foreach (var device in newDevices) Devices.Add(device);
+            }
+
+            IsGroupListError = !grpResult.IsSuccess;
+            GroupListErrorMessage = grpResult.IsSuccess ? null : $"アラームグループ取得失敗: {grpResult.Message}";
+            if (grpResult.IsSuccess)
+            {
+                AlarmGroups.Clear();
+                foreach (var group in newGroups) AlarmGroups.Add(group);
+            }
+        });
     }
 
     private async Task RunSyncCoreAsync()
@@ -547,11 +585,19 @@ public sealed class CloudManagementViewModel : ViewModelBase
     }
 }
 
-public sealed class AsyncRelayCommand<T> : System.Windows.Input.ICommand
+/// <summary>Commands that must raise CanExecuteChanged on the main thread (MAUI bindings).</summary>
+public interface IMainThreadMarshalledCommand
+{
+    Action<Action>? Marshal { get; set; }
+}
+
+public sealed class AsyncRelayCommand<T> : System.Windows.Input.ICommand, IMainThreadMarshalledCommand
 {
     private readonly Func<T, Task> _execute;
     private readonly Func<T, bool>? _canExecute;
     private bool _isExecuting;
+
+    public Action<Action>? Marshal { get; set; }
 
     public event EventHandler? CanExecuteChanged;
 
@@ -606,7 +652,10 @@ public sealed class AsyncRelayCommand<T> : System.Windows.Input.ICommand
 
     public void RaiseCanExecuteChanged()
     {
-        CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+        var handler = CanExecuteChanged;
+        if (handler is null) return;
+        if (Marshal is null) handler(this, EventArgs.Empty);
+        else Marshal(() => handler(this, EventArgs.Empty));
     }
 }
 
