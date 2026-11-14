@@ -12,6 +12,12 @@ public sealed record DeviceAckFailureDto(
     string? Message,
     DateTimeOffset ReceivedAt);
 
+/// <summary>
+/// Owner device list row. <paramref name="HasSuccessfulSync"/> is a server projection of durable
+/// sync evidence (a persisted success ACK for a receipt issued to this registration):
+/// true = at least one successful sync ACK, false = none yet, null = server did not report it
+/// (older API). Omitted-from-JSON therefore reads as null, never as "no ACK".
+/// </summary>
 public sealed record DeviceListItem(
     Guid Id,
     string DisplayName,
@@ -20,7 +26,8 @@ public sealed record DeviceListItem(
     long AppliedRevision,
     string RetirementState,
     bool CancelConfirmed,
-    DateTimeOffset? RevokedAt);
+    DateTimeOffset? RevokedAt,
+    bool? HasSuccessfulSync = null);
 
 public sealed record DeviceDetailDto(
     Guid Id,

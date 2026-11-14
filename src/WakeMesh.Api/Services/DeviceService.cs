@@ -38,10 +38,44 @@ public sealed class DeviceService
     public async Task<IReadOnlyList<DeviceListItem>> ListAsync(CancellationToken ct)
     {
         var rows = await _db.Devices.AsNoTracking().ToListAsync(ct);
+        if (rows.Count == 0)
+        {
+            return Array.Empty<DeviceListItem>();
+        }
+
+        var succeeded = await LoadDevicesWithSuccessfulSyncAsync(rows.Select(d => d.Id).ToList(), ct);
+
         return rows
             .OrderBy(d => d.CreatedAt)
-            .Select(MapListItem)
+            .Select(d => MapListItem(d, succeeded.Contains(d.Id)))
             .ToList();
+    }
+
+    /// <summary>
+    /// Projects "this registration has durable sync evidence" from persisted ACKs only.
+    /// A success counts when the ACK row is <c>result = success</c> AND its receipt exists for the
+    /// same device and revision the ACK claims — that receipt join is what keeps ACKs from a
+    /// previous registration generation (or a foreign device) from being credited to the current row.
+    /// Single set-based query (no per-device N+1) using EXISTS/IN semantics and no DateTimeOffset
+    /// comparison/aggregate, so SQLite, PostgreSQL and SQL Server all translate it unchanged.
+    /// Receipt TTL is deliberately not evaluated: acknowledgement evidence stays durable after the
+    /// 7-day receipt window closes, and treating expiry as "no sync" would recreate the very
+    /// false "waiting for initial sync" state this projection exists to remove.
+    /// </summary>
+    private async Task<HashSet<Guid>> LoadDevicesWithSuccessfulSyncAsync(
+        IReadOnlyCollection<Guid> deviceIds, CancellationToken ct)
+    {
+        var ids = (await (
+                from ack in _db.AckRecords.AsNoTracking()
+                where ack.Result == "success" && deviceIds.Contains(ack.DeviceId)
+                join receipt in _db.SnapshotReceipts.AsNoTracking() on ack.ReceiptId equals receipt.Id
+                where receipt.DeviceId == ack.DeviceId && receipt.Revision == ack.Revision
+                select ack.DeviceId)
+            .Distinct()
+            .ToListAsync(ct))
+            .ToHashSet();
+
+        return ids;
     }
 
     public async Task<(int StatusCode, object Body)> GetAsync(Guid id, CancellationToken ct)
@@ -224,7 +258,7 @@ public sealed class DeviceService
         _ => "none",
     };
 
-    private static DeviceListItem MapListItem(DeviceEntity d) =>
+    private static DeviceListItem MapListItem(DeviceEntity d, bool hasSuccessfulSync) =>
         new(d.Id, d.DisplayName, d.Status.ToString(), d.DesiredRevision, d.AppliedRevision,
-            RetirementState(d), d.CancelConfirmed, d.RevokedAt);
+            RetirementState(d), d.CancelConfirmed, d.RevokedAt, hasSuccessfulSync);
 }
