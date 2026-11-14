@@ -30,9 +30,23 @@ builder.Services.AddDbContext<WakeMeshDbContext>(options =>
     {
         options.UseSqlite(connectionString);
     }
-    else
+    else if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
     {
         options.UseSqlServer(connectionString);
+    }
+    else if (string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        // No EnableRetryOnFailure: retrying execution strategy conflicts with manual transactions.
+        // Boot-time Migrate()/EnsureCreated is intentionally not performed here.
+        // Shared PG options (migrations assembly + history table in the private schema) come from
+        // PostgresConfiguration so the runtime and both design-time factories cannot drift.
+        options.UseNpgsql(connectionString, WakeMesh.Api.Data.PostgresConfiguration.Configure);
+    }
+    else
+    {
+        throw new InvalidOperationException(
+            $"Unknown WakeMesh:Database:Provider '{provider}'. Supported: SqlServer, Sqlite, Postgres.");
     }
 });
 

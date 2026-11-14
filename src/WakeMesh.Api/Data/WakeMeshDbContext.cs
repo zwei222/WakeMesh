@@ -4,6 +4,15 @@ namespace WakeMesh.Api.Data;
 
 public sealed class WakeMeshDbContext : DbContext
 {
+    /// <summary>
+    /// Dedicated PostgreSQL schema. It is owned by the deploy-time migrator role, never by the
+    /// runtime role, and is deliberately outside <c>public</c> and outside any Supabase
+    /// "Exposed schemas" entry. Tables in it carry ENABLE (not FORCE) row level security with a
+    /// single permissive policy for the runtime role; the migrations history table has RLS on and
+    /// no grants at all.
+    /// </summary>
+    public const string PostgresSchema = "wakemesh";
+
     public WakeMeshDbContext(DbContextOptions<WakeMeshDbContext> options) : base(options)
     {
     }
@@ -18,6 +27,13 @@ public sealed class WakeMeshDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // PostgreSQL-only: keep every WakeMesh object out of `public`. SQL Server and SQLite keep
+        // their default schema, so their frozen lineages and the SQLite test model are unchanged.
+        if (Database.IsNpgsql())
+        {
+            modelBuilder.HasDefaultSchema(PostgresSchema);
+        }
+
         modelBuilder.Entity<DeviceEntity>(e =>
         {
             e.HasKey(x => x.Id);
@@ -26,7 +42,12 @@ public sealed class WakeMeshDbContext : DbContext
             e.Property(x => x.CancelConfirmed).IsRequired();
             e.Property(x => x.PushToken).HasMaxLength(4096);
             e.Property(x => x.PushNotificationsCapable).IsRequired();
-            e.Property(x => x.RowVersion).IsConcurrencyToken();
+            var deviceRowVersion = e.Property(x => x.RowVersion).IsConcurrencyToken();
+            // Npgsql maps uint to xid by default; keep app-managed RowVersion as bigint.
+            if (Database.IsNpgsql())
+            {
+                deviceRowVersion.HasConversion<long>();
+            }
         });
 
         modelBuilder.Entity<PushOutboxEntity>(e =>
@@ -48,7 +69,11 @@ public sealed class WakeMeshDbContext : DbContext
             e.Property(x => x.Label).HasMaxLength(200).IsRequired();
             e.Property(x => x.Repeat).HasMaxLength(16).IsRequired();
             e.Property(x => x.TimeZone).HasMaxLength(64).IsRequired();
-            e.Property(x => x.RowVersion).IsConcurrencyToken();
+            var groupRowVersion = e.Property(x => x.RowVersion).IsConcurrencyToken();
+            if (Database.IsNpgsql())
+            {
+                groupRowVersion.HasConversion<long>();
+            }
             e.HasMany(x => x.Targets)
                 .WithOne(t => t.Group!)
                 .HasForeignKey(t => t.GroupId)

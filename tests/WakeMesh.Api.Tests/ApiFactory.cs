@@ -17,14 +17,43 @@ namespace WakeMesh.Api.Tests;
 public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly string _dbName = $"wakemesh-api-tests-{Guid.NewGuid():N}";
+    private readonly string? _providerOverride;
+    private readonly string? _connectionStringOverride;
+    private readonly bool _skipDatabaseInitialize;
+    private readonly bool _usePostgres;
 
     public TestAuthFixture Auth { get; } = new();
 
+    /// <summary>xUnit class-fixture entry point (SQLite in-memory default, unchanged).</summary>
+    public ApiFactory()
+    {
+    }
+
+    private ApiFactory(string? providerOverride, string? connectionStringOverride, bool skipDatabaseInitialize)
+    {
+        _providerOverride = providerOverride;
+        _connectionStringOverride = connectionStringOverride;
+        _skipDatabaseInitialize = skipDatabaseInitialize;
+        _usePostgres = string.Equals(providerOverride, "Postgres", StringComparison.OrdinalIgnoreCase)
+                       && !string.IsNullOrWhiteSpace(connectionStringOverride);
+    }
+
+    /// <summary>
+    /// Explicit provider configuration for provider-selection / real-PostgreSQL tests.
+    /// xUnit class fixtures still get the default ctor above.
+    /// </summary>
+    public static ApiFactory CreateFor(
+        string? providerOverride = null,
+        string? connectionStringOverride = null,
+        bool skipDatabaseInitialize = false)
+        => new(providerOverride, connectionStringOverride, skipDatabaseInitialize);
+
     private Dictionary<string, string?> TestSettings => new()
     {
-        // Shared in-memory SQLite so the factory host and all requests see one DB.
-        ["ConnectionStrings:DefaultConnection"] = $"Data Source=file:{_dbName}?mode=memory&cache=shared",
-        ["WakeMesh:Database:Provider"] = "Sqlite",
+        // Shared in-memory SQLite so the factory host and all requests see one DB (default path).
+        ["ConnectionStrings:DefaultConnection"] = _connectionStringOverride
+            ?? $"Data Source=file:{_dbName}?mode=memory&cache=shared",
+        ["WakeMesh:Database:Provider"] = _providerOverride ?? "Sqlite",
         // Issuer uses the public consumers-tenant GUID form (no personal tenant values).
         ["WakeMesh:Auth:Issuer"] = TestAuthFixture.Issuer,
         ["WakeMesh:Auth:Audience"] = TestAuthFixture.Audience,
@@ -84,12 +113,25 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        if (_skipDatabaseInitialize)
+        {
+            return;
+        }
+
+        if (_usePostgres)
+        {
+            using var scope = Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<WakeMeshDbContext>();
+            await db.Database.MigrateAsync();
+            return;
+        }
+
         _keepAlive = new Microsoft.Data.Sqlite.SqliteConnection(TestSettings["ConnectionStrings:DefaultConnection"]);
         await _keepAlive.OpenAsync();
 
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<WakeMeshDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        using var sqliteScope = Services.CreateScope();
+        var sqliteDb = sqliteScope.ServiceProvider.GetRequiredService<WakeMeshDbContext>();
+        await sqliteDb.Database.EnsureCreatedAsync();
     }
 
     async Task IAsyncLifetime.DisposeAsync()

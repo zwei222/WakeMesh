@@ -13,8 +13,6 @@ namespace WakeMesh.Api.Migrations;
 [DbContext(typeof(WakeMeshDbContext))]
 partial class WakeMeshDbContextModelSnapshot : ModelSnapshot
 {
-    public override string LastMigrationId => "20261114000000_PushOutboxLeaseAndNotificationCapable";
-
     protected override void BuildModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618

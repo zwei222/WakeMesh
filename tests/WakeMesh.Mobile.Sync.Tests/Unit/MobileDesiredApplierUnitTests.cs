@@ -239,7 +239,8 @@ public sealed class MobileDesiredApplierUnitTests : IDisposable
             Name = "My Cooking Timer",
             Time = new TimeOnly(12, 0),
             RepeatKind = AlarmRepeatKind.Once,
-            OnceOnDate = DateOnly.FromDateTime(DateTime.Today),
+            // Keep the fixture in the future regardless of the test's time of day.
+            OnceOnDate = DateOnly.FromDateTime(DateTime.Today.AddDays(1)),
             IsEnabled = true,
             SyncStatus = AlarmSyncStatus.LocalOnly
         };

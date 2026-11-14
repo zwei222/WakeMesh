@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/WakeMesh.Core/WakeMesh.Core.csproj" />
     <Project Path="src/WakeMesh.Api/WakeMesh.Api.csproj" />
+    <Project Path="src/WakeMesh.Api.PostgresMigrations/WakeMesh.Api.PostgresMigrations.csproj" />
     <Project Path="src/WakeMesh.Client/WakeMesh.Client.csproj" />
   </Folder>
   <Folder Name="/tests/">

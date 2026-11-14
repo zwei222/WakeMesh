@@ -8,12 +8,14 @@ namespace WakeMesh.Api.Data;
 /// never embed passwords or production connection strings in source.
 ///
 /// Required:
-///   WAKEMESH_DESIGN_CONNECTION = SQL Server connection string
+///   WAKEMESH_DESIGN_CONNECTION = connection string for the selected provider
 /// Optional:
-///   WAKEMESH_DESIGN_PROVIDER = SqlServer (default) | Sqlite
+///   WAKEMESH_DESIGN_PROVIDER = SqlServer (default) | Sqlite | Postgres
 /// </summary>
 public sealed class WakeMeshDbContextFactory : IDesignTimeDbContextFactory<WakeMeshDbContext>
 {
+    public const string PostgresMigrationsAssemblyName = "WakeMesh.Api.PostgresMigrations";
+
     public WakeMeshDbContext CreateDbContext(string[] args)
     {
         var connection = Environment.GetEnvironmentVariable("WAKEMESH_DESIGN_CONNECTION");
@@ -29,9 +31,19 @@ public sealed class WakeMeshDbContextFactory : IDesignTimeDbContextFactory<WakeM
         {
             builder.UseSqlite(connection);
         }
-        else
+        else if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
         {
             builder.UseSqlServer(connection);
+        }
+        else if (string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.UseNpgsql(connection, PostgresConfiguration.Configure);
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Unknown WakeMesh design-time database provider '{provider}'. Supported: SqlServer, Sqlite, Postgres.");
         }
 
         return new WakeMeshDbContext(builder.Options);
