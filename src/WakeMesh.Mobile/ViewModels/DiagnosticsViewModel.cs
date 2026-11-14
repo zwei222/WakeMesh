@@ -31,6 +31,7 @@ public sealed class DiagnosticsViewModel : ViewModelBase
                 RequestNotificationCommand.RaiseCanExecuteChanged();
                 OpenExactAlarmSettingsCommand.RaiseCanExecuteChanged();
                 OpenFullScreenSettingsCommand.RaiseCanExecuteChanged();
+                OpenBatteryOptimizationSettingsCommand.RaiseCanExecuteChanged();
                 RefreshCommand.RaiseCanExecuteChanged();
                 RefreshHolidaysCommand.RaiseCanExecuteChanged();
             }
@@ -63,6 +64,8 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     public bool CanRequestNotification => _permissionService.OsApiLevel >= 33 && !IsNotificationGranted;
     public bool CanOpenExactAlarmSettings => _permissionService.OsApiLevel >= 31 && !IsExactAlarmGranted;
     public bool CanOpenFullScreenSettings => _permissionService.OsApiLevel >= 34 && !CanUseFullScreenIntent;
+    // T70: battery/Doze row had a status label but no way to reach the OS setting at all.
+    public bool CanOpenBatteryOptimizationSettings => _permissionService.OsApiLevel >= 23 && !IsBatteryOptimizationIgnored;
 
     public string ExactAlarmStatus => _permissionService.OsApiLevel < 31
         ? "不要 (Android 11以下は対象外)"
@@ -91,6 +94,10 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     public string FullScreenActionText => _permissionService.OsApiLevel < 34
         ? "不要 (OS対象外)"
         : (CanUseFullScreenIntent ? "許可済み" : "全画面アラーム設定を開く");
+
+    public string BatteryActionText => _permissionService.OsApiLevel < 23
+        ? "不要 (OS対象外)"
+        : (IsBatteryOptimizationIgnored ? "最適化除外済み" : "省電力除外を設定");
 
     public bool IsAllPermissionsHealthy =>
         (_permissionService.OsApiLevel < 31 || IsExactAlarmGranted) &&
@@ -154,6 +161,7 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     public AsyncRelayCommand RequestNotificationCommand { get; }
     public AsyncRelayCommand OpenExactAlarmSettingsCommand { get; }
     public AsyncRelayCommand OpenFullScreenSettingsCommand { get; }
+    public AsyncRelayCommand OpenBatteryOptimizationSettingsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand RefreshHolidaysCommand { get; }
 
@@ -223,6 +231,22 @@ public sealed class DiagnosticsViewModel : ViewModelBase
             }
         }, _ => !IsBusy && CanOpenFullScreenSettings);
 
+        OpenBatteryOptimizationSettingsCommand = new AsyncRelayCommand(async _ =>
+        {
+            if (IsBusy) return;
+            IsBusy = true;
+            try
+            {
+                _permissionService.OpenBatteryOptimizationSettings();
+                await Task.Yield();
+                UpdateProperties();
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }, _ => !IsBusy && CanOpenBatteryOptimizationSettings);
+
         RefreshCommand = new AsyncRelayCommand(async _ =>
         {
             if (IsBusy) return;
@@ -282,5 +306,6 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         RequestNotificationCommand.RaiseCanExecuteChanged();
         OpenExactAlarmSettingsCommand.RaiseCanExecuteChanged();
         OpenFullScreenSettingsCommand.RaiseCanExecuteChanged();
+        OpenBatteryOptimizationSettingsCommand.RaiseCanExecuteChanged();
     }
 }

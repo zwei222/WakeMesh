@@ -23,6 +23,7 @@ public sealed class StubPermissionService : IPermissionService
     public void RequestNotificationPermission() { }
     public void OpenExactAlarmSettings() { }
     public void OpenFullScreenIntentSettings() { }
+    public void OpenBatteryOptimizationSettings() { }
 }
 
 public sealed class StubAlarmRingingService : IAlarmRingingService

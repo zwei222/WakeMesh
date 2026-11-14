@@ -123,12 +123,21 @@
                     <BoxView HeightRequest="1" Color="{StaticResource CardBorderDark}"/>
 
                     <!-- バッテリー最適化 -->
-                    <Grid ColumnDefinitions="*, Auto" Margin="0,4">
-                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                    <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto, Auto" Margin="0,4" RowSpacing="6">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
                             <Label Text="省電力・Doze回避" FontSize="13" TextColor="{StaticResource TextSlate100}"/>
                             <Label Text="バックグラウンド制限の除外" FontSize="10" TextColor="{StaticResource TextSlate500}"/>
                         </VerticalStackLayout>
-                        <Label Grid.Column="1" Text="{Binding BatteryStatus}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusAmber}" VerticalOptions="Center"/>
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding BatteryStatus}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusAmber}" VerticalOptions="Center"/>
+                        <Button Grid.Row="1" Grid.ColumnSpan="2"
+                                Text="{Binding BatteryActionText}"
+                                Command="{Binding OpenBatteryOptimizationSettingsCommand}"
+                                IsEnabled="{Binding CanOpenBatteryOptimizationSettings}"
+                                FontSize="12"
+                                HeightRequest="36"
+                                BackgroundColor="{StaticResource ChipBackground}"
+                                TextColor="{StaticResource TextSlate100}"
+                                CornerRadius="8"/>
                     </Grid>
                 </VerticalStackLayout>
             </Border>
