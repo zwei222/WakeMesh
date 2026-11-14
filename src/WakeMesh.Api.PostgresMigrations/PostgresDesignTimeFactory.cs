@@ -31,7 +31,9 @@ public sealed class PostgresDesignTimeFactory : IDesignTimeDbContextFactory<Wake
         }
 
         var builder = new DbContextOptionsBuilder<WakeMeshDbContext>();
-        builder.UseNpgsql(connection, PostgresConfiguration.Configure);
+        // Same CA resolution as the runtime host: a relative Root Certificate is anchored on
+        // AppContext.BaseDirectory, so this factory and the published app agree on the file.
+        builder.UseNpgsql(PostgresConfiguration.ResolveConnectionString(connection), PostgresConfiguration.Configure);
         return new WakeMeshDbContext(builder.Options);
     }
 }

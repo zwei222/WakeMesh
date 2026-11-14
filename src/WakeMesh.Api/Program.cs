@@ -24,6 +24,16 @@ var provider = builder.Configuration["WakeMesh:Database:Provider"] ?? "SqlServer
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
 
+var isPostgres = string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase);
+
+// Resolve the CA path once, before any database work, so a misconfigured Root Certificate fails at
+// startup instead of surfacing as an opaque TLS error on the first query. Shared with both
+// design-time factories so the published host and `dotnet ef` cannot disagree.
+var postgresConnectionString = isPostgres
+    ? PostgresConfiguration.ResolveConnectionString(connectionString)
+    : connectionString;
+
 builder.Services.AddDbContext<WakeMeshDbContext>(options =>
 {
     if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))
@@ -34,14 +44,14 @@ builder.Services.AddDbContext<WakeMeshDbContext>(options =>
     {
         options.UseSqlServer(connectionString);
     }
-    else if (string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    else if (isPostgres)
     {
         // No EnableRetryOnFailure: retrying execution strategy conflicts with manual transactions.
         // Boot-time Migrate()/EnsureCreated is intentionally not performed here.
         // Shared PG options (migrations assembly + history table in the private schema) come from
-        // PostgresConfiguration so the runtime and both design-time factories cannot drift.
-        options.UseNpgsql(connectionString, WakeMesh.Api.Data.PostgresConfiguration.Configure);
+        // PostgresConfiguration so the runtime and both design-time factories cannot drift. The CA
+        // path was already resolved against AppContext.BaseDirectory above.
+        options.UseNpgsql(postgresConnectionString, PostgresConfiguration.Configure);
     }
     else
     {

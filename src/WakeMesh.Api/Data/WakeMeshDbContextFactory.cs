@@ -38,7 +38,9 @@ public sealed class WakeMeshDbContextFactory : IDesignTimeDbContextFactory<WakeM
         else if (string.Equals(provider, "Postgres", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(provider, "PostgreSQL", StringComparison.OrdinalIgnoreCase))
         {
-            builder.UseNpgsql(connection, PostgresConfiguration.Configure);
+            // Same CA resolution as the published host: a relative Root Certificate is anchored on
+            // AppContext.BaseDirectory, so `dotnet ef` and the running app agree on the file.
+            builder.UseNpgsql(PostgresConfiguration.ResolveConnectionString(connection), PostgresConfiguration.Configure);
         }
         else
         {

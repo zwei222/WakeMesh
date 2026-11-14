@@ -148,6 +148,45 @@ The local opt-in tests mirror that shape: `postgres` is a non-superuser
 template database, migrations run as the migrator, and the runtime/HTTP/production-dispatch tests
 connect as `wakemesh_api`. A superuser is never used as evidence that RLS works.
 
+## PostgreSQL root CA (TLS `SSL Mode=VerifyFull`)
+
+The hosted database presents a certificate chain that terminates in the Supabase project CA
+(`Supabase Root 2021 CA`), which no OS trust store contains. `SSL Mode=VerifyFull` therefore needs
+an explicit `Root Certificate`. The CA file is **not** in the repository — it is passed in at build
+time from an external path:
+
+```bash
+dotnet publish src/WakeMesh.Api/WakeMesh.Api.csproj \
+  -c Release -r win-x86 --self-contained true \
+  -p:WakeMeshDatabaseCaFile=/path/to/prod-ca-2021.crt \
+  -o <publish-dir>
+```
+
+| Situation | Result |
+|-----------|--------|
+| `WakeMeshDatabaseCaFile` unset (default) | Nothing is packaged; builds/tests behave exactly as before (the disposable socket-PG tests need no TLS) |
+| Set to an existing file | Linked into build output and publish output as `certs/supabase-ca.crt` (`PreserveNewest`) |
+| Set to a missing path | Build **and** publish fail with `WAKEMESH_CA_FILE_MISSING` — an app that cannot verify the server is never produced |
+
+The connection string then carries the **relative** value, so nothing depends on the App Service
+content directory (never hardcode `D:\home\site\wwwroot`, and never rely on the process CWD):
+
+```text
+Root Certificate=certs/supabase-ca.crt;SSL Mode=VerifyFull
+```
+
+`PostgresConfiguration.ResolveConnectionString` (shared by the host and both design-time factories)
+anchors a relative `Root Certificate` on `AppContext.BaseDirectory`, preserves an absolute one
+verbatim, and fails closed with a path-only exception if the file is missing. It never injects a CA
+when the keyword is absent, never relaxes `SSL Mode`, never re-signs the connection string beyond
+Npgsql's own builder output, and never touches any other keyword (password, user, pooling stay as
+configured). There is no custom certificate or hostname-verification callback: Npgsql performs the
+verification.
+
+A `win-x86` self-contained publish produces a 32-bit apphost, so the Windows App Service must run the
+site as 32-bit (`use32BitWorkerProcess=true`); `web.config` is generated as
+`processPath=".\WakeMesh.Api.exe"` + `hostingModel="inprocess"`.
+
 ## Run tests
 
 ```bash

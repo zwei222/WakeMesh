@@ -6,6 +6,44 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!--
+    Optional database CA packaging.
+
+    WakeMeshDatabaseCaFile is the path to a PEM root CA (the Supabase project CA) that Npgsql must
+    trust for SSL Mode=VerifyFull. It is deliberately NOT in the repository: the file only ever
+    comes from an external path, is linked into the output as certs/supabase-ca.crt, and the
+    connection string carries the relative value (see PostgresConfiguration.BundledCaRelativePath)
+    so nothing depends on the App Service content directory (no D:\ or CWD guessing).
+
+    Unset (the default, and what the socket-based disposable-PG tests use): no CA is packaged and
+    the build behaves exactly as before. Set but missing: the build fails instead of shipping an
+    application that cannot verify the database server.
+  -->
+  <PropertyGroup Condition="'$(WakeMeshDatabaseCaFile)' != ''">
+    <_WakeMeshDatabaseCaFileFullPath Condition="$([System.IO.Path]::IsPathRooted('$(WakeMeshDatabaseCaFile)'))">$(WakeMeshDatabaseCaFile)</_WakeMeshDatabaseCaFileFullPath>
+    <_WakeMeshDatabaseCaFileFullPath Condition="!$([System.IO.Path]::IsPathRooted('$(WakeMeshDatabaseCaFile)'))">$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(WakeMeshDatabaseCaFile)'))</_WakeMeshDatabaseCaFileFullPath>
+  </PropertyGroup>
+
+  <Target Name="ValidateWakeMeshDatabaseCaFile"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(WakeMeshDatabaseCaFile)' != ''">
+    <Error Condition="!Exists('$(_WakeMeshDatabaseCaFileFullPath)')"
+           Code="WAKEMESH_CA_FILE_MISSING"
+           Text="WakeMeshDatabaseCaFile='$(WakeMeshDatabaseCaFile)' does not exist at '$(_WakeMeshDatabaseCaFileFullPath)'. Pass the path to a real CA file, or omit the property (the default build packages no CA)." />
+  </Target>
+
+  <ItemGroup Condition="'$(WakeMeshDatabaseCaFile)' != ''">
+    <Content Include="$(_WakeMeshDatabaseCaFileFullPath)"
+             Link="certs/supabase-ca.crt"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- PostgresCertificateConfigurationTests pins the CA path resolution contract. -->
+    <InternalsVisibleTo Include="WakeMesh.Api.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FirebaseAdmin" Version="3.7.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0" />
