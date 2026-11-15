@@ -14,6 +14,8 @@ public sealed record ActiveRingingAlarm(
     bool EnableVibration = true,
     string? SoundUri = null);
 
+public sealed record RingingActionOutcome(string AlarmId, bool Success, string? ErrorMessage);
+
 public sealed class ActiveAlarmRingManager : IAlarmRingingService
 {
     public static ActiveAlarmRingManager Shared { get; } = new();
@@ -22,6 +24,19 @@ public sealed class ActiveAlarmRingManager : IAlarmRingingService
     private readonly object _syncLock = new();
 
     public event EventHandler? RingingStateChanged;
+    public event EventHandler<RingingActionOutcome>? SnoozeOutcome;
+
+    public void ReportSnoozeOutcome(string alarmId, bool success, string? error)
+    {
+        var handler = SnoozeOutcome;
+        if (handler is null) return;
+        var outcome = new RingingActionOutcome(alarmId, success, error);
+        foreach (var invocation in handler.GetInvocationList())
+        {
+            try { ((EventHandler<RingingActionOutcome>)invocation)(this, outcome); }
+            catch { /* Subscriber failures must not interrupt service work. */ }
+        }
+    }
 
     public static readonly TimeSpan MaxRingingDuration = TimeSpan.FromMinutes(10);
 

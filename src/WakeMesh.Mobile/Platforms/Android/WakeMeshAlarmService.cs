@@ -123,6 +123,7 @@ public sealed class WakeMeshAlarmService : Service
         {
             // 保存とOS登録完了を確認してから停止
             RingManager.SnoozeAlarm(alarmId);
+            RingManager.ReportSnoozeOutcome(alarmId, true, null);
 
             if (!RingManager.HasActiveAlarms)
             {
@@ -149,6 +150,7 @@ public sealed class WakeMeshAlarmService : Service
                 StartAudioAndVibration(targetAlarm);
             }
             ShowSnoozeFailureNotification(alarmId, alarmName, snoozeMinutes, result.ErrorMessage ?? "スヌーズ登録失敗");
+            RingManager.ReportSnoozeOutcome(alarmId, false, result.ErrorMessage ?? "スヌーズ登録失敗");
         }
     }
 

@@ -53,33 +53,7 @@ public sealed class FirebasePushSender : IPushSender
             return new PushSendResult(PushSendOutcome.NotConfigured, "notConfigured");
         }
 
-        // Minimal data payload only — no alarm times, labels, or credentials.
-        // High priority only when the device reported notification capability.
-        var message = new Message
-        {
-            // FCM device registration token (SDK renamed Token → Fid).
-            Fid = pushToken,
-            Data = new Dictionary<string, string>
-            {
-                ["type"] = PushMessageTypes.SettingsChanged,
-                ["deviceId"] = deviceId.ToString("D"),
-                ["revision"] = desiredRevision.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            },
-            Android = new AndroidConfig
-            {
-                Priority = notificationCapable ? Priority.High : Priority.Normal,
-                Notification = notificationCapable
-                    ? new AndroidNotification
-                    {
-                        Title = "設定変更",
-                        Body = "クラウドのアラーム設定が更新されました。",
-                        // Channel created on device; fixed name keeps server payload free of secrets.
-                        ChannelId = "wakemesh_settings",
-                    }
-                    : null,
-            },
-            // APNS not required for current Android-first slice.
-        };
+        var message = BuildSettingsChangedMessage(pushToken, deviceId, desiredRevision, notificationCapable);
 
         try
         {
@@ -122,6 +96,56 @@ public sealed class FirebasePushSender : IPushSender
                 ex.GetType().Name);
             return new PushSendResult(PushSendOutcome.TransientFailure, ex.GetType().Name);
         }
+    }
+
+    /// <summary>
+    /// Builds the exact <see cref="Message"/> handed to <c>FirebaseMessaging.SendAsync</c>.
+    /// Extracted so tests can inspect the real SDK object (and its wire shape) instead of
+    /// re-deriving the payload with a hand-written mock serializer.
+    /// </summary>
+    internal static Message BuildSettingsChangedMessage(
+        string pushToken,
+        Guid deviceId,
+        long desiredRevision,
+        bool notificationCapable)
+    {
+        // Minimal data payload only — no alarm times, labels, or credentials.
+        return new Message
+        {
+            // FCM registration token. FirebaseAdmin 3.7.1's Fid is the *Firebase Installation ID*
+            // (FCM REST v1: "Firebase Installation ID (FID) to send a message to"), not a new name
+            // for the registration token — the client still obtains a registration token via
+            // FirebaseMessaging.GetToken() (AndroidPushConfigurationProvider), so it belongs in the
+            // token field. FCM REST v1 describes token as "Deprecated: Use fid instead. During the
+            // transition period, this field also accepts a Firebase Installation ID (FID).
+            // Registration token to send a message to." — i.e. the migration accepts the existing
+            // registration token here; it never says fid accepts a registration token.
+            // Token is [Obsolete] in the SDK ("Deprecated. Use Fid instead."), so the warning is
+            // suppressed for this single assignment only. Fid stays null: CopyAndValidate() throws
+            // when more than one recipient (Token/Fid/Topic/Condition) is set. Do not migrate to Fid
+            // until the client acquires FIDs via onRegistered(); that is a separate client change.
+            // Sources: .evidence/deployment/t154-fcm-target/ (README + evidence 01/04/05).
+#pragma warning disable CS0618 // Message.Token is obsolete in FirebaseAdmin 3.7.1 (Fid = Firebase Installation ID)
+            Token = pushToken,
+#pragma warning restore CS0618
+            Data = new Dictionary<string, string>
+            {
+                ["type"] = PushMessageTypes.SettingsChanged,
+                ["deviceId"] = deviceId.ToString("D"),
+                ["revision"] = desiredRevision.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            },
+            // Data-only by design: a notification payload makes the Android SDK show the message in
+            // the system tray when the app is backgrounded and skip OnMessageReceived — the callback
+            // that shows WakeMesh's own visible notification and enqueues the WorkManager sync.
+            // Whatever FCM's backend does with android.notification alone is unspecified, so no
+            // notification field is sent at all; the client owns the visible notification.
+            // High priority only when the device reported notification capability.
+            Android = new AndroidConfig
+            {
+                Priority = notificationCapable ? Priority.High : Priority.Normal,
+            },
+            // APNS not required for current Android-first slice.
+        };
     }
 
     /// <summary>

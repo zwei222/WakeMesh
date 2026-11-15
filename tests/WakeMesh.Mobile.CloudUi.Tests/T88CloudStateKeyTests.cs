@@ -242,7 +242,12 @@ public sealed class T88CloudStateKeyTests
 
         Assert.DoesNotContain("FCM", vm.FcmNoticeText);
         Assert.DoesNotContain("※", vm.FcmNoticeText);
-        Assert.Contains("未完了", vm.FcmNoticeText); // the honest limitation is preserved
+        Assert.Contains("同期が完了してから", vm.FcmNoticeText);
+        Assert.Contains("通知や通信の状況により反映が遅れる", vm.FcmNoticeText);
+        Assert.Contains("アプリを前面に戻す", vm.FcmNoticeText);
+        Assert.Contains("手動で同期", vm.FcmNoticeText);
+        Assert.DoesNotContain("未接続", vm.FcmNoticeText);
+        Assert.DoesNotContain("リアルタイム", vm.FcmNoticeText);
     }
 
     /// <summary>

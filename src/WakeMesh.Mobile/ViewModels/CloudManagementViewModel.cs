@@ -192,7 +192,7 @@ public sealed class CloudManagementViewModel : ViewModelBase
     }
 
     public string FcmNoticeText =>
-        "プッシュ通知は未接続です。現在、同期はアプリを前面に戻したときと、手動で同期したときだけ実行されます。バックグラウンドでのリアルタイム同期は未完了です。";
+        "クラウドの設定は、同期が完了してからこの端末に反映されます。通知や通信の状況により反映が遅れることがあります。アプリを前面に戻すか、手動で同期して反映状況を確認してください。";
 
     public ObservableCollection<CloudDeviceItemViewModel> Devices { get; } = new();
     public ObservableCollection<CloudAlarmGroupItemViewModel> AlarmGroups { get; } = new();
