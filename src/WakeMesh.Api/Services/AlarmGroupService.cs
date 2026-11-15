@@ -240,6 +240,9 @@ public sealed class AlarmGroupService
                     Enabled = t.Enabled,
                 };
                 entity.Targets.Add(schedule);
+                // New row with a pre-assigned Id: EF graph detection would treat it as Modified and
+                // emit UPDATE (0 rows -> DbUpdateConcurrencyException -> false 412). Force INSERT.
+                _db.DeviceSchedules.Add(schedule);
                 keptOrAdded.Add(schedule);
             }
         }
