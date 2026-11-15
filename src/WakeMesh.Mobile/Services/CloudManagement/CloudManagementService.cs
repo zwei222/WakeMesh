@@ -21,12 +21,14 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
     private readonly AlarmCoordinator _alarmCoordinator;
     private readonly Func<WakeMeshApiClient>? _clientFactory;
     private readonly string? _customStorageDir;
+    private readonly DesiredObservationStore? _observations;
 
     private readonly object _lock = new();
     private readonly SemaphoreSlim _scopeGate = new(1, 1);
     private CancellationTokenSource _inFlightCts = new();
     private WakeMeshApiClient? _cachedClient;
     private string? _cachedApiBaseUrl;
+    private long _observationEpoch;
 
     public event EventHandler? RegistrationChanged;
     public event EventHandler? SyncCompleted;
@@ -56,7 +58,8 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
         IDeviceCredentialStore? credentialStore,
         AlarmCoordinator alarmCoordinator,
         Func<WakeMeshApiClient>? clientFactory = null,
-        string? customStorageDir = null)
+        string? customStorageDir = null,
+        DesiredObservationStore? observations = null)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _registrationStore = registrationStore ?? throw new ArgumentNullException(nameof(registrationStore));
@@ -64,6 +67,7 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
         _alarmCoordinator = alarmCoordinator ?? throw new ArgumentNullException(nameof(alarmCoordinator));
         _clientFactory = clientFactory;
         _customStorageDir = customStorageDir;
+        _observations = observations;
 
         _authService.StateChanged += OnAuthStateChanged;
     }
@@ -72,6 +76,10 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
     {
         lock (_lock)
         {
+            // T118: the last observation belongs to the previous identity. Forget it and make sure an
+            // in-flight cycle cannot publish its result as if it belonged to the new identity.
+            InvalidateObservationScope();
+
             // If settings change or sign-out happens, cancel active calls immediately to prevent sending secrets/ACK
             try
             {
@@ -175,8 +183,8 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
             reg.RegistrationGeneration);
 
         var baseDir = _customStorageDir ?? AlarmStoragePathHelper.GetBaseStorageDirectory();
-        var manifestPath = Path.Combine(baseDir, $"sync_manifest_{oldBinding.ToStorageKey()}.json");
-        var revPath = Path.Combine(baseDir, $"applied_rev_{oldBinding.ToStorageKey()}.json");
+        var manifestPath = CloudSyncStoragePaths.Manifest(CloudSyncStoragePaths.ResolveBaseDirectory(baseDir), oldBinding);
+        var revPath = CloudSyncStoragePaths.AppliedRevision(CloudSyncStoragePaths.ResolveBaseDirectory(baseDir), oldBinding);
 
         var manifestStore = new FileCloudSyncManifestStore(oldBinding, manifestPath);
         var revStore = new DurableAppliedRevisionStore(oldBinding, revPath);
@@ -248,6 +256,7 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
                         recoveryReason: "旧バインディングの同期クリーンアップに失敗しました。再試行が必要です。");
 
                     await _registrationStore.SaveRegistrationAsync(warningReg, CancellationToken.None).ConfigureAwait(false);
+                    InvalidateObservationScope();
                     RegistrationChanged?.Invoke(this, EventArgs.Empty);
 
                     return ApiResult<DeviceRegisterResponse>.Fail(
@@ -301,6 +310,7 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
                         recoveryReason: regResult.Message ?? "UnknownOutcome during registration");
 
                     await _registrationStore.SaveRegistrationAsync(recoveryReg, persistToken).ConfigureAwait(false);
+                    InvalidateObservationScope();
                     RegistrationChanged?.Invoke(this, EventArgs.Empty);
                 }
 
@@ -319,6 +329,7 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
                 recoveryReason: null);
 
             await _registrationStore.SaveRegistrationAsync(registration, persistToken).ConfigureAwait(false);
+            InvalidateObservationScope();
             RegistrationChanged?.Invoke(this, EventArgs.Empty);
 
             if (ct.IsCancellationRequested)
@@ -349,6 +360,7 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
                 recoveryNeeded: false,
                 recoveryReason: null);
             await _registrationStore.SaveRegistrationAsync(cleared, cancellationToken).ConfigureAwait(false);
+            InvalidateObservationScope();
             RegistrationChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -485,9 +497,9 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
             registration.ServerDeviceId,
             registration.RegistrationGeneration);
 
-        var baseDir = _customStorageDir ?? AlarmStoragePathHelper.GetBaseStorageDirectory();
-        var manifestPath = Path.Combine(baseDir, $"sync_manifest_{binding.ToStorageKey()}.json");
-        var revPath = Path.Combine(baseDir, $"applied_rev_{binding.ToStorageKey()}.json");
+        var baseDir = CloudSyncStoragePaths.ResolveBaseDirectory(_customStorageDir);
+        var manifestPath = CloudSyncStoragePaths.Manifest(baseDir, binding);
+        var revPath = CloudSyncStoragePaths.AppliedRevision(baseDir, binding);
 
         var manifestStore = new FileCloudSyncManifestStore(binding, manifestPath);
         var applier = new MobileDesiredApplier(binding, _alarmCoordinator, manifestStore);
@@ -496,9 +508,51 @@ public sealed class CloudManagementService : ICloudManagementService, IDisposabl
         var client = GetClient();
         var orchestrator = new DesiredSyncOrchestrator(client, applier, appliedStore);
 
+        // T118: only the outcome of this epoch may be published — an identity/registration change while the
+        // request was in flight must not be reported as an observation of the new scope.
+        var observationEpoch = Interlocked.Read(ref _observationEpoch);
         var outcome = await orchestrator.SyncDeviceAsync(binding.ServerDeviceId, ct).ConfigureAwait(false);
+        TryPublishObservation(binding, outcome, observationEpoch);
         SyncCompleted?.Invoke(this, EventArgs.Empty);
         return outcome;
+    }
+
+    /// <summary>
+    /// Hands the really-received desired snapshot to the alarm-list projection. Only statuses that carry a
+    /// server answer are published; transport failures, cancellations and stale replies keep the previous
+    /// observation (the projection then simply cannot claim anything about pending changes).
+    /// </summary>
+    private void TryPublishObservation(CloudSyncBinding binding, DesiredSyncOutcome outcome, long observationEpoch)
+    {
+        if (_observations is null || outcome.Snapshot is null)
+        {
+            return;
+        }
+
+        if (outcome.Status is not (
+                DesiredSyncStatus.AppliedAcknowledged or
+                DesiredSyncStatus.ApplyFailedAcknowledged or
+                DesiredSyncStatus.ApplyIncompleteNoAck))
+        {
+            return;
+        }
+
+        if (Interlocked.Read(ref _observationEpoch) != observationEpoch)
+        {
+            return;
+        }
+
+        _observations.Publish(binding.ToStorageKey(), outcome.Snapshot, outcome.Status, DateTimeOffset.UtcNow);
+    }
+
+    /// <summary>
+    /// Called whenever the identity or the device registration changes: the previous observation no longer
+    /// describes this scope, and a cycle that is still in flight must not publish afterwards.
+    /// </summary>
+    private void InvalidateObservationScope()
+    {
+        Interlocked.Increment(ref _observationEpoch);
+        _observations?.Clear();
     }
 
     public void Dispose()

@@ -46,12 +46,28 @@ public sealed class T105ToggleAndHeadingTests
         AlarmsPageXml.Descendants()
             .Single(element => element.Name.LocalName == "Label" && (string?)element.Attribute("Text") == text);
 
+    /// <summary>
+    /// T118: the switch and the band marks belong to the manual alarm row / the page chrome, not to the new
+    /// read-only group-row template, so the lookups are scoped instead of matching both templates.
+    /// </summary>
+    private static XElement ManualRowTemplate() =>
+        AlarmsPageXml.Descendants()
+            .Single(element => element.Name.LocalName == "DataTemplate"
+                               && (string?)element.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2009/xaml"))
+                                   == "models:LocalAlarmModel");
+
+    private static List<XElement> PageChrome(string localName) =>
+        AlarmsPageXml.Descendants()
+            .Where(element => element.Name.LocalName == localName)
+            .Where(element => !element.Ancestors().Any(ancestor => ancestor.Name.LocalName == "DataTemplate"))
+            .ToList();
+
     // --- Switch binding + handler ------------------------------------------
 
     [Fact]
     public void AlarmSwitchBindsIsEnabledOneWay()
     {
-        var toggle = AlarmsPageXml.Descendants().Single(element => element.Name.LocalName == "Switch");
+        var toggle = ManualRowTemplate().Descendants().Single(element => element.Name.LocalName == "Switch");
 
         Assert.Equal("{Binding IsEnabled, Mode=OneWay}", (string?)toggle.Attribute("IsToggled"));
         Assert.Equal("OnAlarmToggled", (string?)toggle.Attribute("Toggled"));
@@ -125,7 +141,7 @@ public sealed class T105ToggleAndHeadingTests
             Assert.Null(label.Attribute("TextColor"));
         }
 
-        var indicators = AlarmsPageXml.Descendants().Where(e => e.Name.LocalName == "StateIndicator").ToList();
+        var indicators = PageChrome("StateIndicator");
         Assert.Equal(3, indicators.Count);
         Assert.Equal(2, indicators.Count(i => (string?)i.Attribute("StateKey") == "critical"));
         Assert.Single(indicators, i => (string?)i.Attribute("StateKey") == "warn");

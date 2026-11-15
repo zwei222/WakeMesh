@@ -40,9 +40,24 @@ public sealed class T101TagWrapTests
         throw new DirectoryNotFoundException();
     }
 
+    /// <summary>
+    /// T118: the page now also carries a read-only group-row template (cloud:GroupAlarmRow). The T101
+    /// contract is about the *manual* alarm row, so every lookup below is scoped to that template instead
+    /// of the whole document.
+    /// </summary>
+    private static XElement ManualRowTemplate() =>
+        AlarmsPageXml.Descendants()
+            .Single(element => element.Name.LocalName == "DataTemplate"
+                               && (string?)element.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2009/xaml"))
+                                   == "models:LocalAlarmModel");
+
     private static XElement TagRow() =>
-        Descendants("FlexLayout").Single(flex => (string?)flex.Attribute("Grid.Row") == "3"
-                                                  && (string?)flex.Attribute("Grid.Column") == "0");
+        ManualRowTemplate().Descendants().Single(flex => flex.Name.LocalName == "FlexLayout"
+                                                        && (string?)flex.Attribute("Grid.Row") == "3"
+                                                        && (string?)flex.Attribute("Grid.Column") == "0");
+
+    private static IEnumerable<XElement> PageChrome(string localName) =>
+        Descendants(localName).Where(element => !element.Ancestors().Any(ancestor => ancestor.Name.LocalName == "DataTemplate"));
 
     private static XElement Tag(string text) =>
         TagRow().Elements().Single(label => (string?)label.Attribute("Text") == text);
@@ -148,9 +163,10 @@ public sealed class T101TagWrapTests
         Assert.Equal("0", (string?)add.Attribute("Grid.Row"));
         Assert.Equal("2", (string?)add.Attribute("Grid.RowSpan"));
 
-        var time = Descendants("Label").Single(l => (string?)l.Attribute("Grid.Row") == "0"
-                                                    && (string?)l.Attribute("Grid.Column") == "0"
-                                                    && (string?)l.Attribute("FontSize") == "40");
+        var time = ManualRowTemplate().Descendants().Single(l => l.Name.LocalName == "Label"
+                                                                && (string?)l.Attribute("Grid.Row") == "0"
+                                                                && (string?)l.Attribute("Grid.Column") == "0"
+                                                                && (string?)l.Attribute("FontSize") == "40");
         Assert.Equal("False", (string?)time.Attribute("FontAutoScalingEnabled"));
 
         Assert.Equal(1, Descendants("Label").Count(l => (string?)l.Attribute("Text") == "{Binding StatusMessage}"));
@@ -166,7 +182,7 @@ public sealed class T101TagWrapTests
         var stopAll = Descendants("Button").Single(b => (string?)b.Attribute("Text") == "すべて停止");
         Assert.Equal("{Binding DismissAllRingingCommand}", (string?)stopAll.Attribute("Command"));
 
-        var marks = Descendants("StateIndicator")
+        var marks = PageChrome("StateIndicator")
             .Select(i => (string?)i.Attribute("StateKey"))
             .Where(key => key is not null)
             .ToList();

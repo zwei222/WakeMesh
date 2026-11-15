@@ -59,6 +59,20 @@ public sealed class T99FinalDesignFixesTests
     private static IEnumerable<XElement> Descendants(string localName) =>
         AlarmsPageXml.Descendants().Where(element => element.Name.LocalName == localName);
 
+    /// <summary>
+    /// T118: the page now carries a second, read-only row template for cloud/group alarms. The T99/T101
+    /// contracts describe the manual alarm row and the page chrome, so those lookups are scoped here rather
+    /// than silently matching the new template as well.
+    /// </summary>
+    private static XElement ManualRowTemplate() =>
+        AlarmsPageXml.Descendants()
+            .Single(element => element.Name.LocalName == "DataTemplate"
+                               && (string?)element.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2009/xaml"))
+                                   == "models:LocalAlarmModel");
+
+    private static IEnumerable<XElement> PageChrome(string localName) =>
+        Descendants(localName).Where(element => !element.Ancestors().Any(ancestor => ancestor.Name.LocalName == "DataTemplate"));
+
     // --- 1) alarm list column and the add button overlap -------------------
 
     [Fact]
@@ -82,9 +96,10 @@ public sealed class T99FinalDesignFixesTests
     [Fact]
     public void AlarmTimeStays40AndIgnoresFontScaling_AndTheListHasOneFooterOnly()
     {
-        var time = Descendants("Label").Single(l => (string?)l.Attribute("Grid.Row") == "0"
-                                                    && (string?)l.Attribute("Grid.Column") == "0"
-                                                    && (string?)l.Attribute("FontSize") == "40");
+        var time = ManualRowTemplate().Descendants().Single(l => l.Name.LocalName == "Label"
+                                                                && (string?)l.Attribute("Grid.Row") == "0"
+                                                                && (string?)l.Attribute("Grid.Column") == "0"
+                                                                && (string?)l.Attribute("FontSize") == "40");
 
         Assert.Equal("False", (string?)time.Attribute("FontAutoScalingEnabled"));
 
@@ -141,7 +156,7 @@ public sealed class T99FinalDesignFixesTests
     {
         Assert.Contains("xmlns:controls=\"clr-namespace:WakeMesh.Mobile.Controls\"", AlarmsPage);
 
-        var marks = Descendants("StateIndicator").ToList();
+        var marks = PageChrome("StateIndicator").ToList();
         Assert.Equal(3, marks.Count);
         Assert.Equal(2, marks.Count(m => (string?)m.Attribute("StateKey") == "critical"));
         Assert.Single(marks, m => (string?)m.Attribute("StateKey") == "warn");

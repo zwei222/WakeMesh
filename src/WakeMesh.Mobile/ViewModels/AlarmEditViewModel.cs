@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using WakeMesh.Core;
 using WakeMesh.Mobile.Models;
 using WakeMesh.Mobile.Services;
+using WakeMesh.Mobile.Services.CloudSync;
 
 namespace WakeMesh.Mobile.ViewModels;
 
@@ -12,6 +15,7 @@ public sealed class AlarmEditViewModel : ViewModelBase
     private readonly AlarmCoordinator _coordinator;
     private readonly IDeviceInfoProvider _deviceInfoProvider;
     private readonly IAudioPlaybackService? _audioPlaybackService;
+    private readonly IGroupAlarmSource? _groupSource;
 
     private string _id = Guid.NewGuid().ToString("N");
     private string _name = "アラーム";
@@ -30,6 +34,7 @@ public sealed class AlarmEditViewModel : ViewModelBase
     private bool _isBusy;
     private string? _errorMessage;
     private bool _isEditMode;
+    private bool _isEditRefused;
 
     public string PageTitle => _isEditMode ? "アラームの編集" : "アラームの新規作成";
 
@@ -281,17 +286,22 @@ public sealed class AlarmEditViewModel : ViewModelBase
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
+    /// <summary>True when this editor was opened for a cloud-owned alarm and must not save anything.</summary>
+    public bool IsEditRefused => _isEditRefused;
+
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand TogglePreviewSoundCommand { get; }
 
     public AlarmEditViewModel(
         AlarmCoordinator coordinator,
         IDeviceInfoProvider deviceInfoProvider,
-        IAudioPlaybackService? audioPlaybackService = null)
+        IAudioPlaybackService? audioPlaybackService = null,
+        IGroupAlarmSource? groupSource = null)
     {
         _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
         _deviceInfoProvider = deviceInfoProvider ?? throw new ArgumentNullException(nameof(deviceInfoProvider));
         _audioPlaybackService = audioPlaybackService;
+        _groupSource = groupSource;
 
         SaveCommand = new AsyncRelayCommand(async _ => await SaveAlarmAsync(), _ => !IsBusy);
         TogglePreviewSoundCommand = new AsyncRelayCommand(async _ =>
@@ -320,6 +330,7 @@ public sealed class AlarmEditViewModel : ViewModelBase
         if (alarm is null)
         {
             _isEditMode = false;
+            _isEditRefused = false;
             Id = Guid.NewGuid().ToString("N");
             Name = "新規アラーム";
             Time = new TimeOnly(7, 0);
@@ -346,7 +357,23 @@ public sealed class AlarmEditViewModel : ViewModelBase
 
     public void LoadFrom(LocalAlarmModel alarm)
     {
+        if (alarm is null)
+        {
+            return;
+        }
+
+        if (IsCloudOwnedId(alarm.Id))
+        {
+            // T113 §3: a cloud (group) alarm must never be edited through the manual editor.
+            _isEditMode = false;
+            _isEditRefused = true;
+            Id = alarm.Id;   // remembered so a later save is refused for the same alarm, never re-created
+            ErrorMessage = NotEditableMessage;
+            return;
+        }
+
         _isEditMode = true;
+        _isEditRefused = false;
         Id = alarm.Id;
         Name = alarm.Name;
         Time = alarm.Time;
@@ -375,6 +402,14 @@ public sealed class AlarmEditViewModel : ViewModelBase
 
         try
         {
+            // T113 §3: never save a cloud-owned alarm through the manual editor — not even a legacy
+            // non-prefixed id that the current binding's manifest maps to a schedule.
+            if (_isEditRefused || IsCloudOwnedId(Id) || await IsManifestManagedAsync(Id).ConfigureAwait(false))
+            {
+                ErrorMessage = NotEditableMessage;
+                return false;
+            }
+
             if (IsPlayingPreview && _audioPlaybackService != null)
             {
                 await _audioPlaybackService.StopPreviewAsync();
@@ -476,6 +511,37 @@ public sealed class AlarmEditViewModel : ViewModelBase
         else
         {
             ActiveWeekdays &= ~day;
+        }
+    }
+
+    public const string NotEditableMessage =
+        "このアラームはここでは変更できません。クラウドの画面のアラームグループから変更してください。";
+
+    /// <summary>Cloud-owned ids always start with the sync prefix; manual ids never do.</summary>
+    private static bool IsCloudOwnedId(string? id) =>
+        !string.IsNullOrEmpty(id) &&
+        id.StartsWith(SyncLocalAlarmIdentity.IdPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Legacy cloud alarms created by older builds can carry a non-prefixed id that is only recorded in the
+    /// manifest, so the save path asks the read-only source before writing. Without a source the prefix
+    /// check above is the whole contract (and the existing manual-alarm tests keep their behaviour).
+    /// </summary>
+    private async Task<bool> IsManifestManagedAsync(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || _groupSource is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var result = await _groupSource.LoadAsync(CancellationToken.None).ConfigureAwait(false);
+            return GroupAlarmProjector.IsCloudManagedId(id, result.Binding, result.Manifest);
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 }

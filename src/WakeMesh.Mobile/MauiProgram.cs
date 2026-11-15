@@ -5,6 +5,7 @@ using Microsoft.Maui.Hosting;
 using WakeMesh.Client;
 using WakeMesh.Mobile.Services;
 using WakeMesh.Mobile.Services.CloudManagement;
+using WakeMesh.Mobile.Services.CloudSync;
 using WakeMesh.Mobile.Services.Push;
 using WakeMesh.Mobile.ViewModels;
 using WakeMesh.Mobile.Views;
@@ -36,6 +37,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICloudNavigation, MauiShellCloudNavigation>();
         builder.Services.AddSingleton<ICloudForegroundSyncService, CloudForegroundSyncService>();
         builder.Services.AddSingleton<IPushTokenStore, FilePushTokenStore>();
+
+        // T118: read-only view of what has already been applied on this device, plus the in-memory hand-over
+        // of the last really-received desired snapshot. Neither reserves an OS alarm nor writes a manifest.
+        builder.Services.AddSingleton<DesiredObservationStore>();
+        builder.Services.AddSingleton<IGroupAlarmSource, GroupAlarmSource>();
 
         // プラットフォームネイティブ実装の注入
 #if ANDROID

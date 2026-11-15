@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using WakeMesh.Client;
 using WakeMesh.Client.Models;
+using WakeMesh.Mobile.Services;
 using WakeMesh.Mobile.Services.CloudManagement;
 
 namespace WakeMesh.Mobile.ViewModels;
@@ -12,6 +14,7 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
 {
     private readonly ICloudManagementService _cloudService;
     private readonly ICloudNavigation _navigation;
+    private readonly IMainThreadDispatcher _dispatcher;
 
     private bool _isBusy;
     private bool _isNew = true;
@@ -44,7 +47,7 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
     public bool IsBusy
     {
         get => _isBusy;
-        set
+        set => OnUiThread(() =>
         {
             if (SetProperty(ref _isBusy, value))
             {
@@ -53,7 +56,7 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
                 ReloadFromServerCommand.RaiseCanExecuteChanged();
                 AddTargetCommand.RaiseCanExecuteChanged();
             }
-        }
+        });
     }
 
     public bool IsNew
@@ -177,10 +180,12 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
 
     public CloudAlarmGroupEditViewModel(
         ICloudManagementService cloudService,
-        ICloudNavigation? navigation = null)
+        ICloudNavigation? navigation = null,
+        IMainThreadDispatcher? dispatcher = null)
     {
         _cloudService = cloudService ?? throw new ArgumentNullException(nameof(cloudService));
         _navigation = navigation ?? new MauiShellCloudNavigation();
+        _dispatcher = dispatcher ?? new ImmediateMainThreadDispatcher();
 
         SaveCommand = new AsyncRelayCommand(async _ =>
         {
@@ -249,15 +254,18 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
                     var result = await _cloudService.CreateAlarmGroupAsync(request).ConfigureAwait(false);
                     if (!result.IsSuccess)
                     {
-                        ErrorMessage = $"作成失敗: {result.Message}";
+                        OnUiThread(() => ErrorMessage = $"作成失敗: {result.Message}");
                         return;
                     }
 
                     var outcome = result.Value!;
-                    IfMatchVersion = outcome.Group.Version;
-                    GroupId = outcome.Group.Id;
-                    IsNew = false;
-                    SaveOutcomeNotice = $"サーバー保存成功 (v{outcome.Group.Version})。端末反映待ち: 各端末の同期完了をお待ちください。";
+                    OnUiThread(() =>
+                    {
+                        IfMatchVersion = outcome.Group.Version;
+                        GroupId = outcome.Group.Id;
+                        IsNew = false;
+                        SaveOutcomeNotice = $"サーバー保存成功 (v{outcome.Group.Version})。端末反映待ち: 各端末の同期完了をお待ちください。";
+                    });
                 }
                 else
                 {
@@ -266,19 +274,29 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
                     {
                         if (result.StatusCode == 412 || result.Kind == WakeMesh.Client.ApiErrorKind.PreconditionFailed)
                         {
-                            ConflictDetected = true;
-                            ConflictMessage = "他の端末またはサーバーで更新されました（ETag 412競合）。入力内容は保持されています。最新情報を再読込して確認してください。";
+                            OnUiThread(() =>
+                            {
+                                ConflictDetected = true;
+                                ConflictMessage = "他の端末またはサーバーで更新されました（ETag 412競合）。入力内容は保持されています。最新情報を再読込して確認してください。";
+                            });
                             return;
                         }
 
-                        ErrorMessage = $"更新失敗: {result.Message}";
+                        OnUiThread(() => ErrorMessage = $"更新失敗: {result.Message}");
                         return;
                     }
 
                     var outcome = result.Value!;
-                    IfMatchVersion = outcome.Group.Version;
-                    SaveOutcomeNotice = $"サーバー保存成功 (v{outcome.Group.Version})。端末反映待ち: 各端末の同期完了をお待ちください。";
+                    OnUiThread(() =>
+                    {
+                        IfMatchVersion = outcome.Group.Version;
+                        SaveOutcomeNotice = $"サーバー保存成功 (v{outcome.Group.Version})。端末反映待ち: 各端末の同期完了をお待ちください。";
+                    });
                 }
+            }
+            catch (Exception ex)
+            {
+                OnUiThread(() => ErrorMessage = $"保存に失敗しました: {ex.Message}");
             }
             finally
             {
@@ -324,26 +342,33 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
             try
             {
                 var groupsResult = await _cloudService.ListAlarmGroupsAsync().ConfigureAwait(false);
-                if (groupsResult.IsSuccess && groupsResult.Value != null)
+                OnUiThread(() =>
                 {
-                    var serverGroup = groupsResult.Value.FirstOrDefault(g => g.Id == GroupId);
-                    if (serverGroup != null)
+                    if (groupsResult.IsSuccess && groupsResult.Value != null)
                     {
-                        ApplyGroupDto(serverGroup);
-                        ConflictDetected = false;
-                        ConflictMessage = null;
-                        ErrorMessage = null;
-                        SaveOutcomeNotice = "最新のグループ設定を再読込しました。";
+                        var serverGroup = groupsResult.Value.FirstOrDefault(g => g.Id == GroupId);
+                        if (serverGroup != null)
+                        {
+                            ApplyGroupDto(serverGroup);
+                            ConflictDetected = false;
+                            ConflictMessage = null;
+                            ErrorMessage = null;
+                            SaveOutcomeNotice = "最新のグループ設定を再読込しました。";
+                        }
+                        else
+                        {
+                            ErrorMessage = "サーバー上にこのグループが存在しません（削除された可能性があります）。";
+                        }
                     }
                     else
                     {
-                        ErrorMessage = "サーバー上にこのグループが存在しません（削除された可能性があります）。";
+                        ErrorMessage = "最新情報の再読込に失敗しました。";
                     }
-                }
-                else
-                {
-                    ErrorMessage = "最新情報の再読込に失敗しました。";
-                }
+                });
+            }
+            catch (Exception ex)
+            {
+                OnUiThread(() => ErrorMessage = $"最新情報の再読込に失敗しました: {ex.Message}");
             }
             finally
             {
@@ -364,78 +389,165 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
     {
     }
 
+    /// <summary>
+    /// Runs a UI-bound update on the main thread. Every cloud call here is awaited with
+    /// ConfigureAwait(false), so the continuation resumes on a thread-pool thread; without this the
+    /// bound AvailableDevices/Targets collections and the properties the Picker reads would be
+    /// mutated off the UI thread (Android then rejects the native view update and the load aborts,
+    /// leaving the device picker empty).
+    /// </summary>
+    private void OnUiThread(Action action)
+    {
+        if (_dispatcher.IsDispatchRequired) _dispatcher.Post(action);
+        else action();
+    }
+
     public async Task InitializeAsync(string? groupId = null)
     {
         IsBusy = true;
         try
         {
             // Load available devices
-            var devResult = await _cloudService.ListDevicesAsync().ConfigureAwait(false);
-            AvailableDevices.Clear();
-            if (devResult.IsSuccess && devResult.Value != null)
+            ApiResult<IReadOnlyList<DeviceListItem>> devResult;
+            try
             {
-                var reg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
-                foreach (var d in devResult.Value)
+                devResult = await _cloudService.ListDevicesAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                OnUiThread(() =>
                 {
-                    AvailableDevices.Add(new CloudDeviceItemViewModel(d, reg != null && d.Id == reg.ServerDeviceId));
-                }
-
-                if (AvailableDevices.Count > 0)
-                {
-                    SelectedDeviceToAdd = AvailableDevices[0];
-                }
+                    AvailableDevices.Clear();
+                    SelectedDeviceToAdd = null;
+                    ErrorMessage = $"端末一覧を取得できませんでした: {ex.Message}";
+                });
+                return;
             }
 
+            CloudDeviceRegistration? registration = null;
+            if (devResult.IsSuccess && devResult.Value != null)
+            {
+                registration = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
+            }
+
+            AlarmGroupDto? existingGroup = null;
             if (!string.IsNullOrWhiteSpace(groupId))
             {
                 var groupsResult = await _cloudService.ListAlarmGroupsAsync().ConfigureAwait(false);
                 if (groupsResult.IsSuccess && groupsResult.Value != null)
                 {
-                    var existing = groupsResult.Value.FirstOrDefault(g => g.Id == groupId);
-                    if (existing != null)
-                    {
-                        ApplyGroupDto(existing);
-                        return;
-                    }
+                    existingGroup = groupsResult.Value.FirstOrDefault(g => g.Id == groupId);
                 }
             }
 
-            // New group setup default
-            IsNew = true;
-            GroupId = $"group-{Guid.NewGuid():N}"[..18];
-            Label = "朝のアラーム";
-            Enabled = true;
-            RepeatMode = "weekly";
-            DayMonday = true;
-            DayTuesday = true;
-            DayWednesday = true;
-            DayThursday = true;
-            DayFriday = true;
-            DaySaturday = false;
-            DaySunday = false;
-            TimeZone = "Asia/Tokyo";
-            ExcludeHolidays = true;
-            IfMatchVersion = 0;
-            _excludedDates.Clear();
-            OnPropertyChanged(nameof(ExcludedDates));
-
-            // Pre-populate with current registered device if available
-            var currentReg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
-            if (currentReg != null && Targets.Count == 0)
+            CloudDeviceRegistration? currentReg = null;
+            if (existingGroup == null)
             {
-                Targets.Add(new CloudAlarmTargetItemViewModel(
-                    currentReg.ServerDeviceId,
-                    string.IsNullOrWhiteSpace(currentReg.DeviceDisplayName) ? "この端末" : currentReg.DeviceDisplayName,
-                    new TimeSpan(7, 0, 0),
-                    "default",
-                    80,
-                    true,
-                    true));
+                // Pre-populate with current registered device if available
+                currentReg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
             }
+
+            OnUiThread(() =>
+            {
+                ApplyDeviceList(devResult, registration);
+
+                if (existingGroup != null)
+                {
+                    ApplyGroupDto(existingGroup);
+                    return;
+                }
+
+                ApplyNewGroupDefaults(currentReg);
+            });
+        }
+        catch (Exception ex)
+        {
+            OnUiThread(() => ErrorMessage = $"グループ設定を読み込めませんでした: {ex.Message}");
         }
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>Applies the fetched device list. A failed fetch is reported, never silently empty.</summary>
+    private void ApplyDeviceList(
+        ApiResult<IReadOnlyList<DeviceListItem>> devResult,
+        CloudDeviceRegistration? registration)
+    {
+        AvailableDevices.Clear();
+
+        if (!devResult.IsSuccess)
+        {
+            SelectedDeviceToAdd = null;
+            ErrorMessage = $"端末一覧を取得できませんでした: {DescribeDeviceListFailure(devResult)}";
+            return;
+        }
+
+        ErrorMessage = null;
+
+        if (devResult.Value == null)
+        {
+            return;
+        }
+
+        foreach (var d in devResult.Value)
+        {
+            AvailableDevices.Add(new CloudDeviceItemViewModel(d, registration != null && d.Id == registration.ServerDeviceId));
+        }
+
+        if (AvailableDevices.Count > 0)
+        {
+            SelectedDeviceToAdd = AvailableDevices[0];
+        }
+    }
+
+    private static string DescribeDeviceListFailure(ApiResult<IReadOnlyList<DeviceListItem>> devResult)
+    {
+        if (!string.IsNullOrWhiteSpace(devResult.Message))
+        {
+            return devResult.Message!;
+        }
+
+        return devResult.Kind switch
+        {
+            ApiErrorKind.Unauthorized => "サインインの有効期限が切れています。もう一度サインインしてください。",
+            ApiErrorKind.Network or ApiErrorKind.Timeout => "サーバーに接続できませんでした。通信状態を確認してください。",
+            _ => "サーバーに接続できませんでした。",
+        };
+    }
+
+    private void ApplyNewGroupDefaults(CloudDeviceRegistration? currentReg)
+    {
+        // New group setup default
+        IsNew = true;
+        GroupId = $"group-{Guid.NewGuid():N}"[..18];
+        Label = "朝のアラーム";
+        Enabled = true;
+        RepeatMode = "weekly";
+        DayMonday = true;
+        DayTuesday = true;
+        DayWednesday = true;
+        DayThursday = true;
+        DayFriday = true;
+        DaySaturday = false;
+        DaySunday = false;
+        TimeZone = "Asia/Tokyo";
+        ExcludeHolidays = true;
+        IfMatchVersion = 0;
+        _excludedDates.Clear();
+        OnPropertyChanged(nameof(ExcludedDates));
+
+        if (currentReg != null && Targets.Count == 0)
+        {
+            Targets.Add(new CloudAlarmTargetItemViewModel(
+                currentReg.ServerDeviceId,
+                string.IsNullOrWhiteSpace(currentReg.DeviceDisplayName) ? "この端末" : currentReg.DeviceDisplayName,
+                new TimeSpan(7, 0, 0),
+                "default",
+                80,
+                true,
+                true));
         }
     }
 
