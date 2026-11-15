@@ -21,7 +21,7 @@ public sealed class T92NativePresentationTests
     public void NativeAlertChangesPresentationWithoutChangingAlarmActions()
     {
         var source = File.ReadAllText(Path.Combine(Root, "src/WakeMesh.Mobile/Platforms/Android/AlarmAlertActivity.cs"));
-        foreach (var presentation in new[] { "#0F1012", "#17181B", "#212327", "#F1EEE7", "#F2766B", "Text = \"アラーム\"", "TextSize = 22", "Dp(64)", "SetStroke(Dp(2)", "GetRingingAlarms().Count >= 2" })
+        foreach (var presentation in new[] { "RingingBackdropView", "RingingThemePalette.For(", "_palette.Ink", "_palette.AllStopStroke", "Text = \"アラーム\"", "TextSize = 22", "Dp(64)", "SetStroke(Dp(2)", "GetRingingAlarms().Count >= 2" })
             Assert.Contains(presentation, source);
         foreach (var preserved in new[] { "ActionDismissAll", "ActionDismiss", "ActionSnooze", "PutExtra(\"alarm_id\"", "PutExtra(\"snooze_minutes\"", "StartService(serviceIntent)", "Finish();", "LongClick +=" })
             Assert.Contains(preserved, source);

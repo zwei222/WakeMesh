@@ -1,0 +1,72 @@
+{
+ "version": "T194",
+ "note": "RingingTheme token table. geometry is shared by all themes (1 renderer). Colors are #RRGGBB or #AARRGGBB (Android ParseColor order).",
+ "default": "sunrise",
+ "order": ["sunrise", "sky", "forest", "night"],
+ "geometry": {
+  "periodMs": 48000, "frameMs": 66, "staticPhase": 0,
+  "basePos": [0, 0.55, 1],
+  "glowStops": {"alpha": [1, 0.45, 0], "pos": [0, 0.5, 1]},
+  "glowA": {"x": 0.80, "y": 0.16, "dx": 0.06, "dy": 0.025, "r": 0.95},
+  "glowB": {"x": 0.20, "y": 0.64, "dx": -0.05, "dy": -0.03, "r": 0.85},
+  "cardRadiusDp": 20, "cardStrokeDp": 1, "allStopRadiusDp": 18, "allStopStrokeDp": 2
+ },
+ "themes": {
+  "sunrise": {
+   "label": "朝焼け", "mode": "light",
+   "base": ["#FFF7EC", "#FCEBDB", "#F7DDCB"],
+   "glowA": "#FFC6A3", "alphaA": 0.50, "dAlphaA": 0.06,
+   "glowB": "#FFF1C8", "alphaB": 0.55, "dAlphaB": -0.05,
+   "window": "#FFF7EC", "lightSystemBars": true,
+   "ink": "#0F1012", "ink2": "#5E5952", "ink3": "#5E5952", "statusInk": "#A8433A",
+   "card": "#E0FFFDF9", "cardStroke": "#E8D8C6",
+   "allStopBg": "#E0FFFDF9", "allStopStroke": "#F2766B", "allStopText": "#A8433A",
+   "slide": {
+    "primary":   {"track": "#0F1012", "label": "#F1EEE7", "fill": "#F2766B", "labelOnFill": "#0F1012", "knob": "#F1EEE7", "arrow": "#0F1012"},
+    "secondary": {"track": "#EADFD2", "label": "#0F1012", "fill": "#D6C3AE", "labelOnFill": "#0F1012", "knob": "#0F1012", "arrow": "#F1EEE7"}
+   }
+  },
+  "sky": {
+   "label": "青空", "mode": "light",
+   "base": ["#F5FAFF", "#E7F1FB", "#D8E7F5"],
+   "glowA": "#FFFFFF", "alphaA": 0.50, "dAlphaA": 0.06,
+   "glowB": "#C6DDF4", "alphaB": 0.55, "dAlphaB": -0.05,
+   "window": "#F5FAFF", "lightSystemBars": true,
+   "ink": "#0F1012", "ink2": "#4E5965", "ink3": "#4E5965", "statusInk": "#A8433A",
+   "card": "#E0FBFDFF", "cardStroke": "#CCDCEB",
+   "allStopBg": "#E0FBFDFF", "allStopStroke": "#F2766B", "allStopText": "#A8433A",
+   "slide": {
+    "primary":   {"track": "#0F1012", "label": "#F1EEE7", "fill": "#F2766B", "labelOnFill": "#0F1012", "knob": "#F1EEE7", "arrow": "#0F1012"},
+    "secondary": {"track": "#DCE6F0", "label": "#0F1012", "fill": "#B9CCDF", "labelOnFill": "#0F1012", "knob": "#0F1012", "arrow": "#F1EEE7"}
+   }
+  },
+  "forest": {
+   "label": "木漏れ日", "mode": "light",
+   "base": ["#F7FAF0", "#EAF2E0", "#DCE8D1"],
+   "glowA": "#FFF2C2", "alphaA": 0.50, "dAlphaA": 0.06,
+   "glowB": "#CFE3BF", "alphaB": 0.55, "dAlphaB": -0.05,
+   "window": "#F7FAF0", "lightSystemBars": true,
+   "ink": "#0F1012", "ink2": "#4F5A4A", "ink3": "#4F5A4A", "statusInk": "#A8433A",
+   "card": "#E0FCFDF8", "cardStroke": "#D2DFC8",
+   "allStopBg": "#E0FCFDF8", "allStopStroke": "#F2766B", "allStopText": "#A8433A",
+   "slide": {
+    "primary":   {"track": "#0F1012", "label": "#F1EEE7", "fill": "#F2766B", "labelOnFill": "#0F1012", "knob": "#F1EEE7", "arrow": "#0F1012"},
+    "secondary": {"track": "#DFE8D5", "label": "#0F1012", "fill": "#BFD0B0", "labelOnFill": "#0F1012", "knob": "#0F1012", "arrow": "#F1EEE7"}
+   }
+  },
+  "night": {
+   "label": "夜", "mode": "dark",
+   "base": ["#0F1012", "#111216", "#13151A"],
+   "glowA": "#1C2230", "alphaA": 0.50, "dAlphaA": 0.06,
+   "glowB": "#1F1B1A", "alphaB": 0.55, "dAlphaB": -0.05,
+   "window": "#0F1012", "lightSystemBars": false,
+   "ink": "#F1EEE7", "ink2": "#B7B3AA", "ink3": "#8F8B83", "statusInk": "#F2766B",
+   "card": "#FF17181B", "cardStroke": "#17181B",
+   "allStopBg": "#FF212327", "allStopStroke": "#F2766B", "allStopText": "#F2766B",
+   "slide": {
+    "primary":   {"track": "#F1EEE7", "label": "#0F1012", "fill": "#393B40", "labelOnFill": "#F1EEE7", "knob": "#0F1012", "arrow": "#F1EEE7"},
+    "secondary": {"track": "#212327", "label": "#F1EEE7", "fill": "#393B40", "labelOnFill": "#F1EEE7", "knob": "#F1EEE7", "arrow": "#0F1012"}
+   }
+  }
+ }
+}

@@ -51,6 +51,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAudioPlaybackService, Platforms.Android.AndroidAudioPlaybackService>();
         builder.Services.AddSingleton<IMainThreadDispatcher, Platforms.Android.MauiMainThreadDispatcher>();
         builder.Services.AddSingleton<ISecureStorageProvider, Platforms.Android.MauiSecureStorageProvider>();
+        // T196: ringing background theme (own SharedPreferences file, read synchronously by AlarmAlertActivity).
+        builder.Services.AddSingleton<IRingingThemeStore, Platforms.Android.SharedPreferencesRingingThemeStore>();
         builder.Services.AddSingleton<IMsalClientAdapter>(sp =>
         {
             // Non-blocking instantiation: zero GetAwaiter().GetResult(), clientId updated asynchronously

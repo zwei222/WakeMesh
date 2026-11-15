@@ -2,6 +2,7 @@ using Android.Content;
 using Android.Views;
 using Android.Views.Accessibility;
 using Android.Widget;
+using WakeMesh.Mobile.Services;
 using GColor = global::Android.Graphics.Color;
 using GPaint = global::Android.Graphics.Paint;
 using GCanvas = global::Android.Graphics.Canvas;
@@ -14,15 +15,17 @@ public sealed class SlideToConfirmView : global::Android.Views.View
     readonly System.Action _commit;
     readonly float _density;
     readonly bool _isPrimary;
+    readonly RingingSlideColors _c;
     float _downX, _downY, _progress;
     bool _horizontal, _vertical, _threshold, _thresholdFired, _cancelled;
     TextView? _live;
     string? _override;
     global::Android.Animation.ValueAnimator? _anim;
 
-    public SlideToConfirmView(Context context, string label, string confirm, System.Action commit, TextView? live = null, bool isPrimary = false) : base(context)
+    public SlideToConfirmView(Context context, string label, string confirm, System.Action commit, TextView? live = null, bool isPrimary = false, RingingThemePalette? palette = null) : base(context)
     {
         _label = label; _confirm = confirm; _commit = commit; _live = live; _isPrimary = isPrimary;
+        var p = palette ?? RingingThemePalette.Sunrise; _c = isPrimary ? p.Primary : p.Secondary;
         _density = Resources!.DisplayMetrics!.Density;
         SetMinimumHeight((int)(64 * _density));
         ContentDescription = label; ImportantForAccessibility = ImportantForAccessibility.Yes;
@@ -50,12 +53,12 @@ public sealed class SlideToConfirmView : global::Android.Views.View
     {
         base.OnDraw(canvas);
         var w = Width; var h = Height; var thumb = D(56); var left = D(4) + _progress * Math.Max(0, w - thumb - D(8));
-        using var track = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_isPrimary ? "#F1EEE7" : "#212327") };
+        using var track = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_c.Track) };
         canvas.DrawRoundRect(0, 0, w, h, D(18), D(18), track);
-        using var fill = new GPaint { AntiAlias = true, Color = GColor.ParseColor("#393B40") };
+        using var fill = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_c.Fill) };
         var fillRight = left + thumb / 2;
         canvas.DrawRoundRect(0, 0, fillRight, h, D(18), D(18), fill);
-        using var text = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_isPrimary ? "#0F1012" : "#F1EEE7"), TextSize = Sp(_isPrimary ? 20 : 15), TextAlign = GPaint.Align.Center, Alpha = _override != null || _progress >= .70f ? 255 : (int)(255 * Math.Max(.5, 1 - _progress / .70 * .5)) };
+        using var text = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_c.Label), TextSize = Sp(_isPrimary ? 20 : 15), TextAlign = GPaint.Align.Center, Alpha = _override != null || _progress >= .70f ? 255 : (int)(255 * Math.Max(.5, 1 - _progress / .70 * .5)) };
         text.SetTypeface(global::Android.Graphics.Typeface.Create("sans-serif", _isPrimary ? global::Android.Graphics.TypefaceStyle.Bold : global::Android.Graphics.TypefaceStyle.Normal));
         var shown = _override ?? (_progress >= .70f ? _confirm : _label);
         var maxWidth = Math.Max(0, w - D(80));
@@ -63,16 +66,16 @@ public sealed class SlideToConfirmView : global::Android.Views.View
         var fm = text.GetFontMetrics();
         var baseline = h / 2f - (fm.Ascent + fm.Descent) / 2;
         canvas.Save(); canvas.ClipRect(0, 0, fillRight, h);
-        text.Color = GColor.ParseColor("#F1EEE7");
+        text.Color = GColor.ParseColor(_c.LabelOnFill);
         canvas.DrawText(shown, w / 2f, baseline, text);
         canvas.Restore();
         canvas.Save(); canvas.ClipRect(fillRight, 0, w, h);
-        text.Color = GColor.ParseColor(_isPrimary ? "#0F1012" : "#F1EEE7");
+        text.Color = GColor.ParseColor(_c.Label);
         canvas.DrawText(shown, w / 2f, baseline, text);
         canvas.Restore();
-        using var knob = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_isPrimary ? "#0F1012" : "#F1EEE7") };
+        using var knob = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_c.Knob) };
         canvas.DrawCircle(left + thumb / 2, h / 2f, thumb / 2, knob);
-        using var arrow = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_isPrimary ? "#F1EEE7" : "#0F1012"), TextSize = D(30), TextAlign = GPaint.Align.Center };
+        using var arrow = new GPaint { AntiAlias = true, Color = GColor.ParseColor(_c.Arrow), TextSize = D(30), TextAlign = GPaint.Align.Center };
         canvas.DrawText("›", left + thumb / 2, h / 2f + D(10), arrow);
     }
     public override bool OnTouchEvent(MotionEvent? e)

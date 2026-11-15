@@ -52,6 +52,23 @@
                 </Border>
             </VerticalStackLayout>
             <VerticalStackLayout Spacing="12">
+                <Label Text="アラームが鳴る画面の背景" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+                            <controls:RingingThemeOption ThemeId="sunrise" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Column="1" ThemeId="sky" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Row="1" ThemeId="forest" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Row="1" Grid.Column="1" ThemeId="night" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                        </Grid>
+                        <Label Text="次にアラームが鳴るときから適用されます" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <Label Text="{Binding RingingThemeErrorMessage}" FontSize="13" TextColor="{StaticResource Ink2}">
+                            <Label.Triggers><DataTrigger TargetType="Label" Binding="{Binding RingingThemeErrorMessage}" Value=""><Setter Property="IsVisible" Value="False" /></DataTrigger></Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
                 <Label Text="クラウド" FontSize="13" TextColor="{StaticResource Ink2}" />
                 <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="0">
                     <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="48">

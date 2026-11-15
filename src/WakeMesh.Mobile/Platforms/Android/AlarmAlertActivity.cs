@@ -22,6 +22,9 @@ public sealed class AlarmAlertActivity : Activity
     private LinearLayout? _alarmsContainer;
     private TextView? _timeView;
     private global::Android.Views.View? _allStopRow;
+    private RingingBackdropView? _backdrop;
+    private RingingThemePalette _palette = RingingThemePalette.Sunrise;
+    private static global::Android.Graphics.Color C(string hex) => global::Android.Graphics.Color.ParseColor(hex);
     private sealed class CardState
     {
         public required ActiveRingingAlarm Alarm;
@@ -63,7 +66,11 @@ public sealed class AlarmAlertActivity : Activity
 #pragma warning restore CS0618
         }
 
+        _palette = RingingThemePalette.For(SharedPreferencesRingingThemeStore.Read(this));
+        Window?.SetBackgroundDrawable(new global::Android.Graphics.Drawables.ColorDrawable(C(_palette.Window)));
         BuildUi();
+        var lightBars = (int)(WindowInsetsControllerAppearance.LightStatusBars | WindowInsetsControllerAppearance.LightNavigationBars);
+        Window?.InsetsController?.SetSystemBarsAppearance(_palette.LightSystemBars ? lightBars : 0, lightBars);
     }
 
     // Item 3: Handle OnNewIntent when another alarm triggers simultaneously
@@ -83,7 +90,7 @@ public sealed class AlarmAlertActivity : Activity
                 ViewGroup.LayoutParams.MatchParent,
                 ViewGroup.LayoutParams.WrapContent)
         };
-        rootLayout.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#0F1012"));
+
         rootLayout.SetGravity(GravityFlags.CenterHorizontal);
         var pagePadding = Dp(16);
         rootLayout.SetPadding(pagePadding, Dp(20), pagePadding, Dp(20));
@@ -95,7 +102,7 @@ public sealed class AlarmAlertActivity : Activity
             TextSize = 16,
             Gravity = GravityFlags.Center
         };
-        titleView.SetTextColor(global::Android.Graphics.Color.ParseColor("#B7B3AA"));
+        titleView.SetTextColor(C(_palette.Ink2));
         rootLayout.AddView(titleView);
 
         // Large Clock Display
@@ -105,7 +112,7 @@ public sealed class AlarmAlertActivity : Activity
             TextSize = 64,
             Gravity = GravityFlags.Center
         };
-        _timeView.SetTextColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
+        _timeView.SetTextColor(C(_palette.Ink));
         _timeView.SetTypeface(null, global::Android.Graphics.TypefaceStyle.Bold);
         _timeView.SetPadding(0, Dp(24), 0, Dp(16));
         rootLayout.AddView(_timeView);
@@ -117,7 +124,7 @@ public sealed class AlarmAlertActivity : Activity
             TextSize = 13,
             Gravity = GravityFlags.Center
         };
-        dndNotice.SetTextColor(global::Android.Graphics.Color.ParseColor("#8F8B83"));
+        dndNotice.SetTextColor(C(_palette.Ink3));
         dndNotice.SetPadding(0, 0, 0, Dp(24));
         rootLayout.AddView(dndNotice);
 
@@ -147,13 +154,14 @@ public sealed class AlarmAlertActivity : Activity
             Text = "長押しですべて停止",
             TextSize = 16
         };
-        dismissAllButton.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#212327"));
+
         dismissAllButton.SetMinHeight(Dp(64));
-        dismissAllButton.SetTextColor(global::Android.Graphics.Color.ParseColor("#F2766B"));
+        dismissAllButton.SetTextColor(C(_palette.AllStopText));
         dismissAllButton.SetPadding(0, Dp(12), 0, Dp(12));
         var allStopBackground = new global::Android.Graphics.Drawables.GradientDrawable();
-        allStopBackground.SetColor(global::Android.Graphics.Color.ParseColor("#212327"));
-        allStopBackground.SetStroke(Dp(2), global::Android.Graphics.Color.ParseColor("#F2766B"));
+        allStopBackground.SetColor(C(_palette.AllStopBg));
+        allStopBackground.SetCornerRadius(Dp(18));
+        allStopBackground.SetStroke(Dp(2), C(_palette.AllStopStroke));
         dismissAllButton.Background = allStopBackground;
         dismissAllButton.Click += (s, e) =>
         {
@@ -175,15 +183,20 @@ public sealed class AlarmAlertActivity : Activity
         bottomLayout.Visibility = WakeMeshAlarmService.RingManager.GetRingingAlarms().Count >= 2 ? ViewStates.Visible : ViewStates.Gone;
 
         var scroll = new global::Android.Widget.ScrollView(this) { FillViewport = true };
-        scroll.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#0F1012"));
+        scroll.SetBackgroundColor(global::Android.Graphics.Color.Transparent);
         scroll.AddView(rootLayout);
-        SetContentView(scroll);
+        _backdrop = new RingingBackdropView(this, _palette);
+        var frame = new FrameLayout(this);
+        frame.AddView(_backdrop, new FrameLayout.LayoutParams(-1, -1));
+        frame.AddView(scroll, new FrameLayout.LayoutParams(-1, -1));
+        SetContentView(frame);
         RefreshRingingAlarmsList();
     }
 
     protected override void OnStart()
     {
         base.OnStart();
+        _backdrop?.Start();
         WakeMeshAlarmService.RingManager.RingingStateChanged += OnRingingChanged;
         WakeMeshAlarmService.RingManager.SnoozeOutcome += OnSnoozeOutcome;
         RefreshRingingAlarmsList();
@@ -191,6 +204,7 @@ public sealed class AlarmAlertActivity : Activity
 
     protected override void OnStop()
     {
+        _backdrop?.Stop();
         WakeMeshAlarmService.RingManager.RingingStateChanged -= OnRingingChanged;
         WakeMeshAlarmService.RingManager.SnoozeOutcome -= OnSnoozeOutcome;
         base.OnStop();
@@ -199,6 +213,7 @@ public sealed class AlarmAlertActivity : Activity
     protected override void OnDestroy()
     {
         _handler.RemoveCallbacksAndMessages(null);
+        _backdrop?.Stop();
         base.OnDestroy();
     }
 
@@ -241,18 +256,19 @@ public sealed class AlarmAlertActivity : Activity
     private void AddAlarmCard(ActiveRingingAlarm alarm, int index = -1, bool fallback = false)
     {
         var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        card.SetBackgroundColor(global::Android.Graphics.Color.ParseColor("#17181B"));
+        var cardBg = new global::Android.Graphics.Drawables.GradientDrawable();
+        cardBg.SetColor(C(_palette.Card)); cardBg.SetCornerRadius(Dp(20)); cardBg.SetStroke(Dp(1), C(_palette.CardStroke)); card.Background = cardBg;
         card.SetPadding(Dp(16), Dp(16), Dp(16), Dp(16));
         var name = new TextView(this) { Text = alarm.AlarmName, TextSize = 22, Gravity = GravityFlags.Center };
-        name.SetTextColor(global::Android.Graphics.Color.ParseColor("#F1EEE7"));
+        name.SetTextColor(C(_palette.Ink));
         card.AddView(name);
         var status = new TextView(this) { TextSize = 13, Gravity = GravityFlags.Center, AccessibilityLiveRegion = global::Android.Views.AccessibilityLiveRegion.Polite };
-        status.SetTextColor(global::Android.Graphics.Color.ParseColor("#F2766B")); card.AddView(status);
+        status.SetTextColor(C(_palette.StatusInk)); card.AddView(status);
         var note = new TextView(this) { Text = "右へスライドして操作", TextSize = 13, Gravity = GravityFlags.Center };
-        note.SetTextColor(global::Android.Graphics.Color.ParseColor("#8F8B83")); card.AddView(note);
+        note.SetTextColor(C(_palette.Ink3)); card.AddView(note);
         CardState? state = null;
-        var snooze = new SlideToConfirmView(this, $"スヌーズ ({alarm.SnoozeMinutes}分)", "離してスヌーズ", () => { if (state != null) StartCardOperation(state, RingingAction.Snooze); }, status);
-        var stop = new SlideToConfirmView(this, "停止", "離して停止", () => { if (state != null) StartCardOperation(state, RingingAction.Stop); }, status, true);
+        var snooze = new SlideToConfirmView(this, $"スヌーズ ({alarm.SnoozeMinutes}分)", "離してスヌーズ", () => { if (state != null) StartCardOperation(state, RingingAction.Snooze); }, status, false, _palette);
+        var stop = new SlideToConfirmView(this, "停止", "離して停止", () => { if (state != null) StartCardOperation(state, RingingAction.Stop); }, status, true, _palette);
         var lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent); lp.SetMargins(0, Dp(6), 0, Dp(6));
         card.AddView(snooze, lp); card.AddView(stop, lp);
         var margin = new LinearLayout.LayoutParams(-1, -2); margin.SetMargins(0, Dp(8), 0, Dp(8)); card.LayoutParameters = margin;

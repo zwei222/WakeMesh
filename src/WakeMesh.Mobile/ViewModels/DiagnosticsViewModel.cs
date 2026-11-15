@@ -7,6 +7,9 @@ namespace WakeMesh.Mobile.ViewModels;
 
 public sealed class DiagnosticsViewModel : ViewModelBase
 {
+    // T196: shown when the chosen background theme could not be written to the device.
+    private const string RingingThemeSaveErrorMessage = "背景を保存できませんでした。もう一度お試しください。";
+
     private readonly IPermissionService _permissionService;
     private readonly IHolidayService _holidayService;
     private readonly IDeviceInfoProvider _deviceInfoProvider;
@@ -16,6 +19,9 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     private bool _isBusy;
     private string? _rescheduledMessage;
     private string? _holidayOperationMessage;
+    private readonly IRingingThemeStore _ringingThemeStore;
+    private string _ringingThemeId;
+    private string? _ringingThemeErrorMessage;
 
     public string DeviceId => _deviceInfoProvider.DeviceId;
     public string DeviceDisplayName => _deviceInfoProvider.DeviceDisplayName;
@@ -188,6 +194,23 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         private set => SetProperty(ref _holidayOperationMessage, value);
     }
 
+    // T196: chosen background theme for the ringing screen (T194 §5-3). RingingThemeId is the saved id,
+    // never a colour. Only a confirmed store write moves it.
+    public string RingingThemeId
+    {
+        get => _ringingThemeId;
+        private set => SetProperty(ref _ringingThemeId, value);
+    }
+
+    /// <summary>Set only when the chosen theme could not be written; null otherwise.</summary>
+    public string? RingingThemeErrorMessage
+    {
+        get => _ringingThemeErrorMessage;
+        private set => SetProperty(ref _ringingThemeErrorMessage, value);
+    }
+
+    public RelayCommand SelectRingingThemeCommand { get; }
+
     // 正直なクラウドステータス（Mesh P2P等未要求機能は撤去）
     public string AuthStatus => _authService != null ? _authService.StatusMessage : "未接続 (Microsoft Entra ID 未設定)";
     public string CloudSyncStatus => "未接続 (ローカル単独運用中)";
@@ -204,13 +227,53 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         IHolidayService holidayService,
         IDeviceInfoProvider? deviceInfoProvider = null,
         AlarmCoordinator? alarmCoordinator = null,
-        IAuthService? authService = null)
+        IAuthService? authService = null,
+        IRingingThemeStore? ringingThemeStore = null)
     {
         _permissionService = permissionService ?? throw new ArgumentNullException(nameof(permissionService));
         _holidayService = holidayService ?? throw new ArgumentNullException(nameof(holidayService));
         _deviceInfoProvider = deviceInfoProvider ?? new LocalDeviceInfoProvider();
         _alarmCoordinator = alarmCoordinator;
         _authService = authService;
+
+        // T196: the theme is a synchronous local read; it must not wait for auth/cloud initialization.
+        // A broken store must not take the screen down: the ringing screen keeps sunrise.
+        _ringingThemeStore = ringingThemeStore ?? new InMemoryRingingThemeStore();
+        _ringingThemeId = RingingThemes.Sunrise;
+        try
+        {
+            _ringingThemeId = RingingThemes.Normalize(_ringingThemeStore.Get());
+        }
+        catch (Exception)
+        {
+            _ringingThemeId = RingingThemes.Sunrise;
+        }
+
+        SelectRingingThemeCommand = new RelayCommand(p =>
+        {
+            var id = RingingThemes.Normalize(p as string);
+            if (id == RingingThemeId)
+            {
+                // Re-selecting the current theme still acknowledges a previous failure.
+                RingingThemeErrorMessage = null;
+                return;
+            }
+
+            try
+            {
+                _ringingThemeStore.Set(id);
+            }
+            catch (Exception)
+            {
+                // The write did not land (Commit() false / exception): keep the previous selection and
+                // say so instead of pretending the theme was saved.
+                RingingThemeErrorMessage = RingingThemeSaveErrorMessage;
+                return;
+            }
+
+            RingingThemeId = id;
+            RingingThemeErrorMessage = null;
+        });
 
         if (_authService != null)
         {
