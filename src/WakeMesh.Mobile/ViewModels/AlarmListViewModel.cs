@@ -845,6 +845,8 @@ public sealed class AlarmListViewModel : ViewModelBase, IDisposable
         ActiveWeekdays = saved.ActiveWeekdays,
         OnceOnDate = saved.OnceOnDate,
         ExcludeHolidays = saved.ExcludeHolidays,
+        // T135: a row replacement must not drop the schedule's excluded dates.
+        ExcludedDates = new List<DateOnly>(saved.ExcludedDates ?? new List<DateOnly>()),
         SnoozeMinutes = saved.SnoozeMinutes,
         SnoozeUntil = saved.SnoozeUntil,
         DeviceId = saved.DeviceId,

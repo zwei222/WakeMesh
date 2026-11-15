@@ -16,7 +16,10 @@ public partial class AlarmEditPage : ContentPage, IQueryAttributable
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
 
-        _viewModel.OnSaveSuccess = async () =>
+        // T133: navigate from an awaited callback. Assigning an async lambda to the old Action made this an
+        // async void handler, where a GoToAsync failure cannot reach the view model's try/catch. The
+        // awaitable property lets SaveAlarmAsync await navigation and report a failure as ErrorMessage.
+        _viewModel.OnSaveSuccessAsync = async () =>
         {
             await Shell.Current.GoToAsync("..");
         };

@@ -29,9 +29,12 @@ namespace WakeMesh.Mobile.Services.CloudSync;
 /// <item>Deletions use <see cref="AlarmCoordinator.CancelThenDeleteAsync"/>: an OS cancel failure is a
 /// reported failure (no success ACK, no applied-revision commit) and the store entry survives for retry.</item>
 /// <item>A manifest commit failure is never reported as success.</item>
+/// <item>T135: the applied item format is stamped only when every item of the snapshot was applied,
+/// so an equal-revision sync can re-apply exactly once after an upgrade that never wrote
+/// <see cref="LocalAlarmModel.ExcludedDates"/>.</item>
 /// </list>
 /// </remarks>
-public sealed class MobileDesiredApplier : IDesiredApplier
+public sealed class MobileDesiredApplier : IDesiredApplier, IEqualRevisionReapplyProbe
 {
     private readonly CloudSyncBinding _binding;
     private readonly AlarmCoordinator _coordinator;
@@ -164,6 +167,14 @@ public sealed class MobileDesiredApplier : IDesiredApplier
             alarm.Time = ParseTime(item.Time);
             alarm.TimeZoneId = string.IsNullOrWhiteSpace(item.TimeZone) ? "Asia/Tokyo" : item.TimeZone;
             alarm.ExcludeHolidays = item.ExcludeHolidays;
+            // T135: replace the whole set (never merge) so an added AND a removed exclusion both land
+            // through the same line. Phase 0 already rejected every malformed value.
+            alarm.ExcludedDates = (item.ExcludedDates ?? Array.Empty<string>())
+                .Where(IsValidExcludedDate)
+                .Select(ParseExcludedDate)
+                .Distinct()
+                .OrderBy(d => d)
+                .ToList();
             alarm.VolumePercent = Math.Clamp(item.Volume, 0, 100);
             alarm.EnableVibration = item.Vibrate;
             alarm.SoundUri = item.SoundKey;
@@ -216,6 +227,13 @@ public sealed class MobileDesiredApplier : IDesiredApplier
 
         // 5. Commit the manifest. A commit failure is never reported as success: the already applied
         //    OS/store effects remain recoverable through the deterministic prefix on the next cycle.
+        // T135: the item-format stamp rides along with this atomic save, and only a clean apply sets it.
+        // A partially failed apply leaves it at the old value so the equal-revision probe retries.
+        if (failures.Count == 0)
+        {
+            workingManifest.AppliedItemFormat = CloudSyncManifest.CurrentAppliedItemFormat;
+        }
+
         try
         {
             await _manifestStore.SaveAsync(workingManifest, cancellationToken).ConfigureAwait(false);
@@ -240,6 +258,17 @@ public sealed class MobileDesiredApplier : IDesiredApplier
             Succeeded: true,
             Completed: true,
             Failures: Array.Empty<AckFailureDto>());
+    }
+
+    /// <summary>
+    /// T135: true while this device's applied payload predates the current item format (for example,
+    /// an upgrade from a build that never stored <c>ExcludedDates</c>). The orchestrator then re-applies
+    /// the equal revision once instead of re-ACKing it. Reads the manifest only — no mutation.
+    /// </summary>
+    public async Task<bool> RequiresReapplyAtEqualRevisionAsync(CancellationToken cancellationToken = default)
+    {
+        var manifest = await _manifestStore.LoadAsync(cancellationToken).ConfigureAwait(false);
+        return manifest.AppliedItemFormat < CloudSyncManifest.CurrentAppliedItemFormat;
     }
 
     /// <summary>
@@ -296,6 +325,14 @@ public sealed class MobileDesiredApplier : IDesiredApplier
                 continue;
             }
 
+            // T135: every excluded date must be a real yyyy-MM-dd date. Null is an empty set (older
+            // wire payloads), but a malformed element fails the whole snapshot in Phase 0.
+            if (item.ExcludedDates is not null && !item.ExcludedDates.All(IsValidExcludedDate))
+            {
+                failures.Add(new AckFailureDto(item.ScheduleId, "InvalidItem", "invalid excludedDates"));
+                continue;
+            }
+
             if (isOnce)
             {
                 if (!string.IsNullOrWhiteSpace(item.Date) &&
@@ -347,6 +384,14 @@ public sealed class MobileDesiredApplier : IDesiredApplier
 
         throw new FormatException($"Invalid time string format: '{timeStr}'");
     }
+
+    private static bool IsValidExcludedDate(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+           && date != default;
+
+    private static DateOnly ParseExcludedDate(string value)
+        => DateOnly.ParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None);
 
     private static Weekdays ConvertDaysToWeekdays(IReadOnlyList<int>? days)
     {

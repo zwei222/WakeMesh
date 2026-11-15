@@ -16,7 +16,7 @@ ASP.NET Core (.NET 11) owner-scoped multi-device alarm API.
 - Immediate `POST .../revoke` → `Revoked` with `retirementState=revokedUnconfirmed`
 - AlarmGroup create/list/replace/delete with `If-Match` (428/412); BumpDevices re-reads targets in-transaction and refuses non-live device status (Pending|Active only); concurrent same-id POST resolves 200/409
 - Owner device list/detail exposes retirement state and recent ACK failures
-- FCM: status flag only — never reported as sent
+- FCM: FirebaseAdmin sender with durable outbox, leases and retry backoff. Sending requires explicit configuration and server credentials; SDK acceptance is not a device application ACK.
 
 ## Not verified
 
@@ -38,7 +38,8 @@ ASP.NET Core (.NET 11) owner-scoped multi-device alarm API.
 | `WakeMesh:Auth:AllowedAzp` | Mobile public client id (`azp` only) |
 | `WakeMesh:Auth:AllowedOwnerOids` | Owner oid allowlist (required) |
 | `WakeMesh:Auth:MetadataAddress` | OIDC metadata URL (required HTTPS; production signing keys) |
-| `WakeMesh:Fcm:Configured` | Status flag only — sender not implemented |
+| `WakeMesh:Fcm:Configured` | Enables the implemented FCM sender; defaults to false |
+| `WakeMesh:Fcm:CredentialsPath` | Private server-side service-account JSON path; never place the file in public web content or source control |
 
 ### Fictional local example
 

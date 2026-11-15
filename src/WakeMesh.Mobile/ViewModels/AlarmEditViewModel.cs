@@ -38,7 +38,16 @@ public sealed class AlarmEditViewModel : ViewModelBase
 
     public string PageTitle => _isEditMode ? "アラームの編集" : "アラームの新規作成";
 
+    /// <summary>Synchronous save-completion callback. Used only when <see cref="OnSaveSuccessAsync"/> is not set.</summary>
     public Action? OnSaveSuccess { get; set; }
+
+    /// <summary>
+    /// T133: awaited save-completion callback. The page uses this to await navigation, so a navigation
+    /// failure surfaces through <see cref="ErrorMessage"/> instead of escaping an async void handler and
+    /// tearing the process down. It also keeps <see cref="IsBusy"/> true until the navigation finished,
+    /// so a double tap cannot start a second save.
+    /// </summary>
+    public Func<Task>? OnSaveSuccessAsync { get; set; }
 
     public string Id
     {
@@ -404,7 +413,10 @@ public sealed class AlarmEditViewModel : ViewModelBase
         {
             // T113 §3: never save a cloud-owned alarm through the manual editor — not even a legacy
             // non-prefixed id that the current binding's manifest maps to a schedule.
-            if (_isEditRefused || IsCloudOwnedId(Id) || await IsManifestManagedAsync(Id).ConfigureAwait(false))
+            // T133: this await keeps the caller's context. The guard's own read finishes on a worker
+            // thread, and capturing that would put every later step (PropertyChanged, the save callback,
+            // IsBusy=false) off the UI thread.
+            if (_isEditRefused || IsCloudOwnedId(Id) || await IsManifestManagedAsync(Id))
             {
                 ErrorMessage = NotEditableMessage;
                 return false;
@@ -461,6 +473,11 @@ public sealed class AlarmEditViewModel : ViewModelBase
                 ActiveWeekdays = IsWeekly ? ActiveWeekdays : Weekdays.None,
                 OnceOnDate = onceOnDate,
                 ExcludeHolidays = ExcludeHolidays,
+                // T135: the manual editor has no excluded-date UI, so an edit must carry the row's
+                // existing dates through instead of silently clearing them. A new alarm starts empty.
+                ExcludedDates = existing?.ExcludedDates is { Count: > 0 } excludedDates
+                    ? new List<DateOnly>(excludedDates)
+                    : new List<DateOnly>(),
                 SnoozeMinutes = SnoozeMinutes,
                 VolumePercent = VolumePercent,
                 EnableVibration = EnableVibration,
@@ -471,7 +488,19 @@ public sealed class AlarmEditViewModel : ViewModelBase
             };
 
             await _coordinator.SaveAlarmAsync(model);
-            OnSaveSuccess?.Invoke();
+
+            // T133: prefer the awaitable callback so the page can await navigation inside this try/catch.
+            // The sync Action stays for callers that do not navigate, and never fires twice.
+            var asyncCallback = OnSaveSuccessAsync;
+            if (asyncCallback is not null)
+            {
+                await asyncCallback();
+            }
+            else
+            {
+                OnSaveSuccess?.Invoke();
+            }
+
             return true;
         }
         catch (Exception ex)

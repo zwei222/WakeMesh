@@ -17,6 +17,21 @@ public interface IDesiredApplier
     Task<DesiredApplyResult> ApplyAsync(DesiredSnapshotDto snapshot, CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// T135: optional capability of an applier that stores a payload-format marker locally. When an incoming
+/// snapshot carries exactly the revision already committed, the orchestrator normally re-ACKs without
+/// touching the OS. An applier whose local payload predates the current item format can ask for one
+/// re-apply instead, so an upgraded client picks up fields the previous build never wrote.
+/// </summary>
+public interface IEqualRevisionReapplyProbe
+{
+    /// <summary>
+    /// True when the applied payload must be rebuilt at the equal revision. Must be read-only: the
+    /// orchestrator calls it before deciding whether to run <see cref="IDesiredApplier.ApplyAsync"/>.
+    /// </summary>
+    Task<bool> RequiresReapplyAtEqualRevisionAsync(CancellationToken cancellationToken = default);
+}
+
 /// <param name="Succeeded">True only when every item/tombstone was applied.</param>
 /// <param name="Failures">Per-schedule failures when Succeeded is false.</param>
 /// <param name="Completed">False if apply did not finish (cancel/incomplete) — orchestrator must NOT send ACK.</param>
@@ -60,7 +75,8 @@ public sealed record DesiredSyncOutcome(
 /// Apply/commit ordering: OS apply success → <see cref="IAppliedRevisionStore.CommitAppliedRevisionAsync"/> → success ACK.
 /// The store is required (no implicit in-memory fallback) and must be durable across process restarts.
 /// Snapshots that fail desired schema validation are <see cref="ApiErrorKind.InvalidResponse"/> (no apply/commit/ACK).
-/// Equal committed revision: skip applier, success-ACK with the new receipt (ACK-loss recovery).
+/// Equal committed revision: skip applier, success-ACK with the new receipt (ACK-loss recovery) —
+/// unless the applier implements <see cref="IEqualRevisionReapplyProbe"/> and asks for one re-apply.
 /// Strictly lower revision: <see cref="DesiredSyncStatus.StaleRevisionSkipped"/>.
 /// </remarks>
 public sealed class DesiredSyncOrchestrator
@@ -170,7 +186,41 @@ public sealed class DesiredSyncOrchestrator
         if (committed is long applied && snapshot.Revision == applied)
         {
             // Already applied: do not re-run OS applier; success-ACK with the fresh receipt.
-            return await PostSuccessAckAsync(deviceId, snapshot, cancellationToken).ConfigureAwait(false);
+            // T135: an applier that can prove its local payload predates the current item format
+            // (for example, the build that never stored ExcludedDates) gets exactly one re-apply.
+            if (_applier is not IEqualRevisionReapplyProbe probe)
+            {
+                return await PostSuccessAckAsync(deviceId, snapshot, cancellationToken).ConfigureAwait(false);
+            }
+
+            bool requiresReapply;
+            try
+            {
+                requiresReapply = await probe.RequiresReapplyAtEqualRevisionAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new DesiredSyncOutcome(DesiredSyncStatus.CanceledNoAck, snapshot, null, ApiErrorKind.Canceled, "canceled");
+            }
+            catch (Exception)
+            {
+                // The marker could not be read, so the local payload may be stale: fail closed with a
+                // fixed classification. No store/OS mutation, no success ACK — the next cycle retries.
+                return new DesiredSyncOutcome(
+                    DesiredSyncStatus.ApplyIncompleteNoAck,
+                    snapshot,
+                    null,
+                    ApiErrorKind.Unexpected,
+                    "equalRevisionProbeFailed");
+            }
+
+            if (!requiresReapply)
+            {
+                return await PostSuccessAckAsync(deviceId, snapshot, cancellationToken).ConfigureAwait(false);
+            }
+
+            // Fall through to the normal apply path: apply → commit the same revision → success ACK.
+            // The commit store only refuses to move the mark backwards, so an equal commit is a no-op.
         }
 
         DesiredApplyResult apply;

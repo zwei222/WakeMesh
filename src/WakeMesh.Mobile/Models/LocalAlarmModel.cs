@@ -31,6 +31,19 @@ public sealed class LocalAlarmModel
     public Weekdays ActiveWeekdays { get; set; } = Weekdays.Monday | Weekdays.Tuesday | Weekdays.Wednesday | Weekdays.Thursday | Weekdays.Friday;
     public DateOnly? OnceOnDate { get; set; }
 
+    /// <summary>
+    /// T129/T135: dates on which the schedule must not ring (server group ExcludedDates).
+    /// Empty by default; an explicit JSON <c>null</c> deserializes to empty, never to a null set.
+    /// Serialized as-is so the CloudSync applier can round-trip it through the store.
+    /// </summary>
+    public List<DateOnly> ExcludedDates
+    {
+        get => _excludedDates;
+        set => _excludedDates = value ?? new List<DateOnly>();
+    }
+
+    private List<DateOnly> _excludedDates = new();
+
     [JsonIgnore]
     public DateOnly? TargetDate
     {
@@ -123,7 +136,7 @@ public sealed class LocalAlarmModel
                 new(DeviceId, Time)
             },
             ExcludeHolidays = ExcludeHolidays,
-            ExcludedDates = new HashSet<DateOnly>()
+            ExcludedDates = new HashSet<DateOnly>(ExcludedDates ?? Enumerable.Empty<DateOnly>())
         };
     }
 
@@ -143,6 +156,7 @@ public sealed class LocalAlarmModel
             OnceOnDate = definition.OnceOnDate,
             ActiveWeekdays = definition.ActiveWeekdays,
             ExcludeHolidays = definition.ExcludeHolidays,
+            ExcludedDates = definition.ExcludedDates.OrderBy(d => d).ToList(),
             DeviceId = deviceId,
             TimeZoneId = string.IsNullOrWhiteSpace(definition.TimeZoneId) ? "Asia/Tokyo" : definition.TimeZoneId,
             SyncStatus = AlarmSyncStatus.LocalOnly
