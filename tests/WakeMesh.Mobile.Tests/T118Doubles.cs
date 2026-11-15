@@ -19,6 +19,12 @@ public sealed class T118CloudStub : ICloudManagementService
     public bool IsConfiguredAndSignedIn { get; set; } = true;
     public string? CurrentUserAccountId { get; set; } = "owner-account";
 
+    /// <summary>T187R: the live server groups the list→edit resolver reads (read-only).</summary>
+    public List<AlarmGroupDto> Groups { get; } = new();
+
+    /// <summary>Number of <see cref="ListAlarmGroupsAsync"/> calls, so a test can prove one read / none.</summary>
+    public int ListGroupsCallCount { get; private set; }
+
     public event EventHandler? RegistrationChanged;
     public event EventHandler? SyncCompleted;
 
@@ -46,8 +52,11 @@ public sealed class T118CloudStub : ICloudManagementService
         Task.FromResult(ApiResult.Fail(ApiErrorKind.Network, message: "stub"));
 
     public Task<ApiResult<IReadOnlyList<AlarmGroupDto>>> ListAlarmGroupsAsync(
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(ApiResult<IReadOnlyList<AlarmGroupDto>>.Ok(Array.Empty<AlarmGroupDto>()));
+        CancellationToken cancellationToken = default)
+    {
+        ListGroupsCallCount++;
+        return Task.FromResult(ApiResult<IReadOnlyList<AlarmGroupDto>>.Ok(Groups.ToArray()));
+    }
 
     public Task<ApiResult<GroupSaveOutcome>> CreateAlarmGroupAsync(
         AlarmGroupWriteRequest request, CancellationToken cancellationToken = default) =>

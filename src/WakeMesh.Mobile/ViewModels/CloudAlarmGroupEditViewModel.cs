@@ -18,6 +18,9 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
 
     private bool _isBusy;
     private bool _isNew = true;
+    private bool _isSaveReady;
+    private bool _editIntent;
+    private string? _requestedGroupId;
     private string _groupId = string.Empty;
     private string _label = string.Empty;
     private bool _enabled = true;
@@ -63,6 +66,23 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
     {
         get => _isNew;
         private set => SetProperty(ref _isNew, value);
+    }
+
+    /// <summary>
+    /// True only after loading actually succeeded: either an existing group was applied or the
+    /// defaults for a genuine new group were created. Saving is blocked until then, so a failed
+    /// edit load can never fall through to a create (or a stale-version replace).
+    /// </summary>
+    public bool IsSaveReady
+    {
+        get => _isSaveReady;
+        private set
+        {
+            if (SetProperty(ref _isSaveReady, value))
+            {
+                SaveCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public string GroupId
@@ -190,6 +210,22 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
         SaveCommand = new AsyncRelayCommand(async _ =>
         {
             if (IsBusy) return;
+
+            // Defence in depth: CanExecute already reports not-ready, but the execute body must not
+            // save either. An edit whose load failed must never be re-saved as a create or with a
+            // fabricated version.
+            if (!IsSaveReady)
+            {
+                ErrorMessage = "グループ情報の読み込みが完了していないため保存できません。一覧から開き直してください。";
+                return;
+            }
+
+            if (_editIntent && string.IsNullOrWhiteSpace(_requestedGroupId))
+            {
+                ErrorMessage = "編集対象のグループIDが特定できないため保存できません。一覧から開き直してください。";
+                return;
+            }
+
             ErrorMessage = null;
             ConflictDetected = false;
             ConflictMessage = null;
@@ -302,7 +338,7 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
             {
                 IsBusy = false;
             }
-        }, _ => !IsBusy);
+        }, _ => !IsBusy && IsSaveReady);
 
         AddTargetCommand = new RelayCommand(_ =>
         {
@@ -354,6 +390,9 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
                             ConflictMessage = null;
                             ErrorMessage = null;
                             SaveOutcomeNotice = "最新のグループ設定を再読込しました。";
+                            // A successful reload of the same id restores the save guard after a failed
+                            // or blocked edit load.
+                            IsSaveReady = true;
                         }
                         else
                         {
@@ -404,22 +443,47 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
 
     public async Task InitializeAsync(string? groupId = null)
     {
+        // Boundary rule: no query value (null) means "new group"; anything else - including an empty
+        // or whitespace string handed over by the page - is an edit intent whose id must be loaded.
+        var editIntent = groupId is not null;
+        _editIntent = editIntent;
+        _requestedGroupId = editIntent ? groupId : null;
+
         IsBusy = true;
         try
         {
+            if (editIntent)
+            {
+                // Block saving from the first moment of an edit load, keep the requested id and stay
+                // in edit mode so a failed load can never re-issue an id or create a group.
+                OnUiThread(() =>
+                {
+                    IsSaveReady = false;
+                    IsNew = false;
+                    GroupId = groupId!;
+                    ErrorMessage = null;
+                    ConflictDetected = false;
+                    ConflictMessage = null;
+                });
+            }
+            else
+            {
+                OnUiThread(() => IsSaveReady = false);
+            }
+
             // Load available devices
             ApiResult<IReadOnlyList<DeviceListItem>> devResult;
             try
             {
                 devResult = await _cloudService.ListDevicesAsync().ConfigureAwait(false);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 OnUiThread(() =>
                 {
                     AvailableDevices.Clear();
                     SelectedDeviceToAdd = null;
-                    ErrorMessage = $"端末一覧を取得できませんでした: {ex.Message}";
+                    ErrorMessage = "端末一覧を取得できませんでした。通信状態を確認して再度お試しください。";
                 });
                 return;
             }
@@ -430,44 +494,108 @@ public sealed class CloudAlarmGroupEditViewModel : ViewModelBase
                 registration = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
             }
 
-            AlarmGroupDto? existingGroup = null;
-            if (!string.IsNullOrWhiteSpace(groupId))
+            if (editIntent)
             {
-                var groupsResult = await _cloudService.ListAlarmGroupsAsync().ConfigureAwait(false);
-                if (groupsResult.IsSuccess && groupsResult.Value != null)
-                {
-                    existingGroup = groupsResult.Value.FirstOrDefault(g => g.Id == groupId);
-                }
+                await LoadExistingGroupAsync(groupId!, devResult, registration).ConfigureAwait(false);
+                return;
             }
 
-            CloudDeviceRegistration? currentReg = null;
-            if (existingGroup == null)
-            {
-                // Pre-populate with current registered device if available
-                currentReg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
-            }
+            var currentReg = await _cloudService.GetCurrentRegistrationAsync().ConfigureAwait(false);
 
             OnUiThread(() =>
             {
                 ApplyDeviceList(devResult, registration);
-
-                if (existingGroup != null)
-                {
-                    ApplyGroupDto(existingGroup);
-                    return;
-                }
-
                 ApplyNewGroupDefaults(currentReg);
+                if (devResult.IsSuccess)
+                {
+                    ErrorMessage = null;
+                    IsSaveReady = true;
+                }
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            OnUiThread(() => ErrorMessage = $"グループ設定を読み込めませんでした: {ex.Message}");
+            // Never surface raw exception text: it can carry transport detail the user cannot act on.
+            OnUiThread(() => ErrorMessage = "グループ設定を読み込めませんでした。通信状態を確認して再度お試しください。");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Edit-intent load: the requested id is kept verbatim, and only a successful match makes the
+    /// editor save-ready. Every failure keeps <see cref="IsNew"/> false (so no create can happen),
+    /// leaves the existing draft untouched and reports a fixed, distinguishable reason.
+    /// </summary>
+    private async Task LoadExistingGroupAsync(
+        string requestedGroupId,
+        ApiResult<IReadOnlyList<DeviceListItem>> devResult,
+        CloudDeviceRegistration? registration)
+    {
+        if (string.IsNullOrWhiteSpace(requestedGroupId))
+        {
+            OnUiThread(() =>
+            {
+                ApplyDeviceList(devResult, registration);
+                ErrorMessage = "編集対象のグループIDが空のため読み込めませんでした。一覧から編集するグループを選び直してください。";
+            });
+            return;
+        }
+
+        ApiResult<IReadOnlyList<AlarmGroupDto>> groupsResult;
+        try
+        {
+            groupsResult = await _cloudService.ListAlarmGroupsAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            OnUiThread(() =>
+            {
+                ApplyDeviceList(devResult, registration);
+                ErrorMessage = "グループを読み込めませんでした。通信状態を確認して再度お試しください。";
+            });
+            return;
+        }
+
+        if (!groupsResult.IsSuccess || groupsResult.Value == null)
+        {
+            OnUiThread(() =>
+            {
+                ApplyDeviceList(devResult, registration);
+                ErrorMessage = DescribeGroupLoadFailure(groupsResult);
+            });
+            return;
+        }
+
+        var existingGroup = groupsResult.Value.FirstOrDefault(
+            g => string.Equals(g.Id, requestedGroupId, StringComparison.Ordinal));
+
+        OnUiThread(() =>
+        {
+            ApplyDeviceList(devResult, registration);
+
+            if (existingGroup == null)
+            {
+                ErrorMessage = "サーバー上にこのグループが見つかりません（削除された可能性があります）。一覧から開き直してください。";
+                return;
+            }
+
+            ApplyGroupDto(existingGroup);
+            ErrorMessage = null;
+            IsSaveReady = true;
+        });
+    }
+
+    private static string DescribeGroupLoadFailure(ApiResult<IReadOnlyList<AlarmGroupDto>> groupsResult)
+    {
+        return groupsResult.Kind switch
+        {
+            ApiErrorKind.Unauthorized => "サインインの有効期限が切れているためグループを読み込めませんでした。もう一度サインインしてください。",
+            ApiErrorKind.Network or ApiErrorKind.Timeout => "グループを読み込めませんでした。通信状態を確認して再度お試しください。",
+            _ => "グループを読み込めませんでした。時間をおいて再度お試しください。",
+        };
     }
 
     /// <summary>Applies the fetched device list. A failed fetch is reported, never silently empty.</summary>

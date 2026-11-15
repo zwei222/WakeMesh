@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using WakeMesh.Client.Models;
 using WakeMesh.Mobile.Models;
 using WakeMesh.Mobile.Services;
 using WakeMesh.Mobile.Services.CloudManagement;
@@ -199,6 +200,10 @@ public sealed class AlarmListViewModel : ViewModelBase, IDisposable
 
         // T113 §3: a group row never opens the manual editor. It only asks the existing cloud route to
         // show that group, and only when the row carries a group id and the cloud is signed in.
+        // T187R: the row's GroupId is only the gate (the producer is frozen). The id handed to the
+        // editor is resolved from the live server list, because the manifest copy can be stale - a stale
+        // id would open nothing (and could previously fall through to the new-group defaults). Read-only:
+        // it lists groups and navigates, nothing else.
         OpenGroupCommand = new AsyncRelayCommand(async param =>
         {
             if (param is not GroupAlarmRow row || !CanOpenGroupRow(row))
@@ -214,8 +219,33 @@ public sealed class AlarmListViewModel : ViewModelBase, IDisposable
 
             try
             {
+                if (row.ScheduleId is not Guid scheduleId || scheduleId == Guid.Empty || _cloud is null)
+                {
+                    await RunOnUiThreadAsync(() => StatusMessage = GroupOpenFailureMessage).ConfigureAwait(false);
+                    return;
+                }
+
+                await RunOnUiThreadAsync(() => StatusMessage = GroupOpenLoadingMessage).ConfigureAwait(false);
+
+                var groupsResult = await _cloud.ListAlarmGroupsAsync().ConfigureAwait(false);
+                if (!groupsResult.IsSuccess || groupsResult.Value is null)
+                {
+                    await RunOnUiThreadAsync(() => StatusMessage = GroupOpenFailureMessage).ConfigureAwait(false);
+                    return;
+                }
+
+                var groupId = ResolveOwnerGroupId(groupsResult.Value, scheduleId);
+                if (groupId is null)
+                {
+                    await RunOnUiThreadAsync(() => StatusMessage = GroupOpenFailureMessage).ConfigureAwait(false);
+                    return;
+                }
+
+                // The resolve succeeded: drop the progress text back to the normal footer wording.
+                await RunOnUiThreadAsync(() => StatusMessage = BuildStatusMessage()).ConfigureAwait(false);
+
                 await navigation
-                    .GoToAsync($"CloudAlarmGroupEditPage?groupId={Uri.EscapeDataString(row.GroupId!)}")
+                    .GoToAsync($"CloudAlarmGroupEditPage?groupId={Uri.EscapeDataString(groupId)}")
                     .ConfigureAwait(false);
             }
             catch (Exception)
@@ -233,6 +263,71 @@ public sealed class AlarmListViewModel : ViewModelBase, IDisposable
         row.CanOpenGroup &&
         !string.IsNullOrEmpty(row.GroupId) &&
         CanEditCloudGroups;
+
+    /// <summary>Fixed text for every "cannot resolve the owner group" case; never a route with the row id.</summary>
+    private const string GroupOpenFailureMessage = "グループを特定できませんでした。一覧を更新してください";
+
+    /// <summary>Shown in the existing footer while the read-only resolve call is in flight.</summary>
+    private const string GroupOpenLoadingMessage = "グループを開いています...";
+
+    /// <summary>
+    /// T187R: the single owner of the schedule. <c>ScheduleId</c> is a server target id
+    /// (<c>DeviceSchedule.Id</c>), the same value the group DTO carries on its targets, and each schedule
+    /// row has exactly one owning group - so an exact <see cref="Guid"/> match on one live group is the
+    /// only sound answer. Anything else (none, or more than one) is unresolved: no label/id repair, no
+    /// fallback to the row's own GroupId.
+    /// </summary>
+    private static string? ResolveOwnerGroupId(IReadOnlyList<AlarmGroupDto> groups, Guid scheduleId)
+    {
+        List<string> matches = new(2);
+
+        foreach (var group in groups)
+        {
+            if (group is null ||
+                group.DeletedAt is not null ||
+                string.IsNullOrWhiteSpace(group.Id) ||
+                group.Targets is null)
+            {
+                continue;
+            }
+
+            var owns = false;
+            foreach (var target in group.Targets)
+            {
+                if (target is not null && target.Id == scheduleId)
+                {
+                    owns = true;
+                    break;
+                }
+            }
+
+            if (!owns)
+            {
+                continue;
+            }
+
+            var alreadySeen = false;
+            foreach (var existing in matches)
+            {
+                if (string.Equals(existing, group.Id, StringComparison.Ordinal))
+                {
+                    alreadySeen = true;
+                    break;
+                }
+            }
+
+            if (!alreadySeen)
+            {
+                matches.Add(group.Id);
+                if (matches.Count > 1)
+                {
+                    return null;   // ambiguous: refuse instead of guessing
+                }
+            }
+        }
+
+        return matches.Count == 1 ? matches[0] : null;
+    }
 
     public void SubscribeRingingEvents()
     {

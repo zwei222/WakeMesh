@@ -491,6 +491,13 @@ public sealed class T118GroupAlarmListTests : IDisposable
         await SaveManualAlarmAsync();
         await _applier.ApplyAsync(Snapshot(new[] { Item(ScheduleA, groupId: "group/one two") }));
 
+        // T187R: the id handed to the editor is the live server owner of this schedule, not a copy of
+        // the row's manifest field. Here they agree, so the historical route string is unchanged.
+        _cloud.Groups.Add(new AlarmGroupDto(
+            "group/one two", "グループ朝", true, 3, null, "weekly", new[] { 1, 2, 3, 4, 5 }, null,
+            "Asia/Tokyo", true, Array.Empty<string>(),
+            new[] { new AlarmTargetDto(ScheduleA, DeviceId, "07:00", "default", 80, true, true) }));
+
         var vm = NewViewModel();
         await vm.LoadAlarmsAsync();
         var row = Assert.Single(vm.GroupAlarms);
@@ -502,6 +509,7 @@ public sealed class T118GroupAlarmListTests : IDisposable
         Assert.Equal(
             $"CloudAlarmGroupEditPage?groupId={Uri.EscapeDataString("group/one two")}",
             route);
+        Assert.Equal(1, _cloud.ListGroupsCallCount);
     }
 
     [Fact]
