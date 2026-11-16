@@ -8,7 +8,7 @@ namespace WakeMesh.Mobile.Converters;
 /// <summary>
 /// T80 §4: the short label that belongs to a state key. The keys themselves are owned by the view
 /// models (<c>StateKey</c> / <c>ReflectionStateKey</c>) and are never rewritten here; this only
-/// picks the fixed Themis wording that goes next to the mark. The full server wording stays in the
+/// picks the fixed short wording that goes next to the mark. The full server wording stays in the
 /// expandable details (SyncStatusText / ReflectionStatusText).
 /// </summary>
 public sealed class StateKeyToShortLabelConverter : IValueConverter

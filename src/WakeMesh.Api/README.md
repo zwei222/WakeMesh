@@ -8,6 +8,8 @@ ASP.NET Core (.NET 11) owner-scoped multi-device alarm API.
 - Substitute claims rejected: `appid` (for azp), long-form `objectidentifier` (for oid)
 - `FallbackPolicy = OwnerOnly` (only `/health` is anonymous)
 - Allowlist empty/unset → fail closed (startup incomplete config error does not echo oid/secret values)
+- Single owner by default: a second distinct non-blank allowlisted OID fails at startup with a count-only error (no OID values). Every allowlisted OID co-manages **all** devices and groups — there is no per-owner isolation. `AllowMultipleOwners=true` is an explicit acknowledgment of that shared management, not a tenancy feature.
+- PostgreSQL TLS guard outside Development/Test: the host requires `SSL Mode=VerifyFull` **and** a `Root Certificate` at startup, and otherwise refuses to start with a fixed error that never echoes the connection string, host, user, or password.
 - Signing keys: **OIDC MetadataAddress only** in production code (HTTPS required at startup). No static PEM config key. Tests inject the RSA public key + static OIDC fixture via `WebApplicationFactory` `PostConfigure<JwtBearerOptions>` without overriding production `ValidAlgorithms` / Issuer / Audience.
 - Device register: server-generated id, 32-byte CSPRNG credential returned once, SHA-256 stored, `FixedTimeEquals` compare
 - Desired snapshot + receipt (7-day TTL) built in a transaction with revision double-check; Pending→Active survives Reload
@@ -37,6 +39,7 @@ ASP.NET Core (.NET 11) owner-scoped multi-device alarm API.
 | `WakeMesh:Auth:RequiredScope` | `access_as_user` |
 | `WakeMesh:Auth:AllowedAzp` | Mobile public client id (`azp` only) |
 | `WakeMesh:Auth:AllowedOwnerOids` | Owner oid allowlist (required) |
+| `WakeMesh:Auth:AllowMultipleOwners` | Default `false`. Set `true` only to explicitly accept that every allowlisted OID co-manages all data (no per-owner isolation); a second distinct OID otherwise fails at startup |
 | `WakeMesh:Auth:MetadataAddress` | OIDC metadata URL (required HTTPS; production signing keys) |
 | `WakeMesh:Fcm:Configured` | Enables the implemented FCM sender; defaults to false |
 | `WakeMesh:Fcm:CredentialsPath` | Private server-side service-account JSON path; never place the file in public web content or source control |
@@ -183,6 +186,13 @@ when the keyword is absent, never relaxes `SSL Mode`, never re-signs the connect
 Npgsql's own builder output, and never touches any other keyword (password, user, pooling stay as
 configured). There is no custom certificate or hostname-verification callback: Npgsql performs the
 verification.
+
+Outside Development/Test the host also enforces this at startup: after resolving the CA path it
+rejects a PostgreSQL connection string unless `SSL Mode` is exactly `VerifyFull` **and**
+`Root Certificate` is present, failing closed with a fixed error that names those two keywords and
+never echoes the connection string, host, user, or password. This stops a later configuration edit
+from silently dropping certificate verification. The resolver and the design-time factories keep
+their existing behavior; the guard applies to the runtime host only.
 
 A `win-x86` self-contained publish produces a 32-bit apphost, so the Windows App Service must run the
 site as 32-bit (`use32BitWorkerProcess=true`); `web.config` is generated as

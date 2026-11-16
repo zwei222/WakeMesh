@@ -19,6 +19,13 @@ public sealed class AuthOptions
     /// <summary>Owner object ids (oid). Empty = fail closed.</summary>
     public List<string> AllowedOwnerOids { get; set; } = new();
 
+    /// <summary>
+    /// Explicit opt-in to more than one distinct owner OID. Every allowlisted OID co-manages all
+    /// devices and groups (there is no per-owner isolation). Default false: a second distinct OID
+    /// fails at startup instead of silently granting co-management of all data.
+    /// </summary>
+    public bool AllowMultipleOwners { get; set; }
+
     /// <summary>OpenID metadata URL. Required for signing-key discovery in all hosted environments.</summary>
     public string? MetadataAddress { get; set; }
 }

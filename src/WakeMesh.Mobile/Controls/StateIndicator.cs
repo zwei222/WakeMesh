@@ -9,7 +9,7 @@ namespace WakeMesh.Mobile.Controls;
 /// T80 §4 state mark: one 12dp shape plus an optional short text, chosen only by the state key the
 /// view models already expose (<c>StateKey</c> / <c>ReflectionStateKey</c>):
 /// ok / pending / unknown / warn / critical / notRequired / inactive.
-/// The shape and the colour are fixed by the Themis spec, so the pages never hard-code a colour.
+/// The shape and the colour are fixed by the design spec, so the pages never hard-code a colour.
 /// The text is the caller's own wording; this control never invents one.
 /// </summary>
 public sealed class StateIndicator : ContentView

@@ -14,7 +14,7 @@ namespace WakeMesh.Api.Tests;
 /// rights runs the expose recipe" -- never as evidence that RLS works.
 ///
 /// Every check below is asserted against real psql exit codes and SQLSTATE-level errors, and the
-/// direct exits are appended to <c>.evidence/deployment/t47-verify/verify-mutation-exits.tsv</c>.
+/// direct exits are appended to the run's TSV evidence file.
 /// </summary>
 public sealed class PostgresSecurityTests
 {

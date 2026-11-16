@@ -124,7 +124,7 @@ public sealed class FirebasePushSender : IPushSender
             // suppressed for this single assignment only. Fid stays null: CopyAndValidate() throws
             // when more than one recipient (Token/Fid/Topic/Condition) is set. Do not migrate to Fid
             // until the client acquires FIDs via onRegistered(); that is a separate client change.
-            // Sources: .evidence/deployment/t154-fcm-target/ (README + evidence 01/04/05).
+            // Sources: FCM REST v1 reference and the FirebaseAdmin 3.7.1 SDK behaviour quoted above.
 #pragma warning disable CS0618 // Message.Token is obsolete in FirebaseAdmin 3.7.1 (Fid = Firebase Installation ID)
             Token = pushToken,
 #pragma warning restore CS0618

@@ -7,6 +7,16 @@ namespace WakeMesh.Api.Services;
 public sealed class DesiredAckService
 {
     public static readonly TimeSpan ReceiptTtl = TimeSpan.FromDays(7);
+
+    /// <summary>Keep the first 64 ACK failures in order; drop the rest.</summary>
+    public const int MaxAckFailures = 64;
+
+    /// <summary>Truncate <c>Code</c> to 64 UTF-16 code units (null becomes empty).</summary>
+    public const int MaxAckFailureCodeLength = 64;
+
+    /// <summary>Truncate <c>Message</c> to 512 UTF-16 code units (null stays null).</summary>
+    public const int MaxAckFailureMessageLength = 512;
+
     private readonly WakeMeshDbContext _db;
 
     public DesiredAckService(WakeMeshDbContext db)
@@ -88,8 +98,13 @@ public sealed class DesiredAckService
         if (result == "success" && failures.Count > 0)
         {
             // Partial success is not allowed: callers must report failure with item details.
+            // This uses the ORIGINAL count, before normalization.
             return (400, new { error = "successWithFailures" });
         }
+
+        // Normalize after the rejection checks and before the retry loop: PostAckOnceAsync stores
+        // this bounded list. Read path (LoadRecentFailuresAsync) is deliberately not truncated.
+        failures = NormalizeFailures(failures);
 
         // Retry on transient races with PUT/activation (never surface 500 for concurrency).
         for (var attempt = 0; attempt < 8; attempt++)
@@ -239,6 +254,51 @@ public sealed class DesiredAckService
 
         var finalApplied = await CurrentAppliedAsync(deviceId, ct);
         return (200, new AckResponse(deviceId, finalApplied, "accepted"));
+    }
+
+    private static IReadOnlyList<AckFailureDto> NormalizeFailures(IReadOnlyList<AckFailureDto> failures)
+    {
+        if (failures.Count == 0)
+        {
+            return failures;
+        }
+
+        var kept = Math.Min(failures.Count, MaxAckFailures);
+        var normalized = new List<AckFailureDto>(kept);
+        for (var i = 0; i < kept; i++)
+        {
+            var failure = failures[i];
+            var code = TruncateUtf16(failure.Code ?? string.Empty, MaxAckFailureCodeLength);
+            var message = failure.Message is null
+                ? null
+                : TruncateUtf16(failure.Message, MaxAckFailureMessageLength);
+
+            // ScheduleId is preserved unchanged; nothing is appended, so the stored text is an
+            // exact prefix of the input.
+            normalized.Add(new AckFailureDto(failure.ScheduleId, code, message));
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Truncates to <paramref name="maxUnits"/> UTF-16 code units. If the cut would leave a high
+    /// surrogate at the end, drop one more unit so no lone surrogate is ever stored.
+    /// </summary>
+    private static string TruncateUtf16(string value, int maxUnits)
+    {
+        if (value.Length <= maxUnits)
+        {
+            return value;
+        }
+
+        var cut = maxUnits;
+        if (char.IsHighSurrogate(value[cut - 1]))
+        {
+            cut--;
+        }
+
+        return value[..cut];
     }
 
     private async Task<long> CurrentAppliedAsync(Guid deviceId, CancellationToken ct) =>

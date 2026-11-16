@@ -107,4 +107,27 @@ public static class PostgresConfiguration
         new(
             $"PostgreSQL RootCertificate file not found at '{resolvedPath}'. Deploy the CA next to the " +
             $"application (for example '{BundledCaRelativePath}') or remove the RootCertificate keyword.");
+
+    /// <summary>
+    /// Fail-closed TLS precondition for the runtime host outside Development/Test. Pure: no
+    /// environment access and no I/O; the caller decides whether the guard applies.
+    ///
+    /// Requires <b>both</b> <c>SSL Mode=VerifyFull</c> and a non-blank <c>Root Certificate</c>. A
+    /// missing <c>SSL Mode</c> parses to <c>Prefer</c> and is rejected. On violation the thrown
+    /// <see cref="InvalidOperationException"/> uses a fixed message that names the required keywords
+    /// and never contains the connection string, host, username, or password.
+    /// </summary>
+    public static void EnsureVerifiedTls(string resolvedConnectionString)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resolvedConnectionString);
+
+        var builder = new NpgsqlConnectionStringBuilder(resolvedConnectionString);
+        if (builder.SslMode != SslMode.VerifyFull || string.IsNullOrWhiteSpace(builder.RootCertificate))
+        {
+            throw new InvalidOperationException(
+                "Production PostgreSQL requires SSL Mode=VerifyFull with an explicit Root Certificate. " +
+                "Set SSL Mode=VerifyFull and configure the Root Certificate keyword; refusing to start " +
+                "with weaker or unverified TLS.");
+        }
+    }
 }

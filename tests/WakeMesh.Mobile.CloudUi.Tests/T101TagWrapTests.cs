@@ -8,7 +8,7 @@ using Xunit;
 namespace WakeMesh.Mobile.CloudUi.Tests;
 
 /// <summary>
-/// T101 regression guard for the Themis S1 follow-up (t100 followup queue): the alarm-row tag strip
+/// T101 regression guard: the alarm-row tag strip
 /// must wrap inside the left column instead of clipping. The real AlarmsPage.xaml is asserted, and the
 /// T99 fixes around this container (640dp column, add-button row span, single ringing stop, band state
 /// marks, 40sp non-scaling time, one footer) must stay untouched.

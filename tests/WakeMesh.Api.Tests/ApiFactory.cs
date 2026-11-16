@@ -21,6 +21,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly string? _connectionStringOverride;
     private readonly bool _skipDatabaseInitialize;
     private readonly bool _usePostgres;
+    private readonly string? _environmentOverride;
+    private readonly IReadOnlyDictionary<string, string?>? _extraSettings;
 
     public TestAuthFixture Auth { get; } = new();
 
@@ -29,42 +31,72 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
     }
 
-    private ApiFactory(string? providerOverride, string? connectionStringOverride, bool skipDatabaseInitialize)
+    private ApiFactory(
+        string? providerOverride,
+        string? connectionStringOverride,
+        bool skipDatabaseInitialize,
+        string? environmentOverride,
+        IReadOnlyDictionary<string, string?>? extraSettings)
     {
         _providerOverride = providerOverride;
         _connectionStringOverride = connectionStringOverride;
         _skipDatabaseInitialize = skipDatabaseInitialize;
         _usePostgres = string.Equals(providerOverride, "Postgres", StringComparison.OrdinalIgnoreCase)
                        && !string.IsNullOrWhiteSpace(connectionStringOverride);
+        _environmentOverride = environmentOverride;
+        _extraSettings = extraSettings;
     }
 
     /// <summary>
     /// Explicit provider configuration for provider-selection / real-PostgreSQL tests.
     /// xUnit class fixtures still get the default ctor above.
+    ///
+    /// <paramref name="environmentOverride"/> and <paramref name="extraSettings"/> are optional and
+    /// additive: when omitted the host runs exactly as before (<c>Test</c> environment and the
+    /// current settings). <paramref name="extraSettings"/> entries override matching default keys
+    /// and can add new keys (for example a second <c>AllowedOwnerOids</c> index).
     /// </summary>
     public static ApiFactory CreateFor(
         string? providerOverride = null,
         string? connectionStringOverride = null,
-        bool skipDatabaseInitialize = false)
-        => new(providerOverride, connectionStringOverride, skipDatabaseInitialize);
+        bool skipDatabaseInitialize = false,
+        string? environmentOverride = null,
+        IReadOnlyDictionary<string, string?>? extraSettings = null)
+        => new(providerOverride, connectionStringOverride, skipDatabaseInitialize, environmentOverride, extraSettings);
 
-    private Dictionary<string, string?> TestSettings => new()
+    private Dictionary<string, string?> TestSettings
     {
-        // Shared in-memory SQLite so the factory host and all requests see one DB (default path).
-        ["ConnectionStrings:DefaultConnection"] = _connectionStringOverride
-            ?? $"Data Source=file:{_dbName}?mode=memory&cache=shared",
-        ["WakeMesh:Database:Provider"] = _providerOverride ?? "Sqlite",
-        // Issuer uses the public consumers-tenant GUID form (no personal tenant values).
-        ["WakeMesh:Auth:Issuer"] = TestAuthFixture.Issuer,
-        ["WakeMesh:Auth:Audience"] = TestAuthFixture.Audience,
-        ["WakeMesh:Auth:RequiredScope"] = TestAuthFixture.RequiredScope,
-        ["WakeMesh:Auth:AllowedAzp"] = TestAuthFixture.AllowedAzp,
-        ["WakeMesh:Auth:AllowedOwnerOids:0"] = TestAuthFixture.AllowedOid,
-        // HTTPS metadata URL satisfies production ValidateAuthConfig; no real network fetch (static fixture below).
-        ["WakeMesh:Auth:MetadataAddress"] =
-            $"https://login.microsoftonline.com/{TestAuthFixture.ConsumersTenantId}/v2.0/.well-known/openid-configuration",
-        ["WakeMesh:Fcm:Configured"] = "false",
-    };
+        get
+        {
+            var settings = new Dictionary<string, string?>
+            {
+                // Shared in-memory SQLite so the factory host and all requests see one DB (default path).
+                ["ConnectionStrings:DefaultConnection"] = _connectionStringOverride
+                    ?? $"Data Source=file:{_dbName}?mode=memory&cache=shared",
+                ["WakeMesh:Database:Provider"] = _providerOverride ?? "Sqlite",
+                // Issuer uses the public consumers-tenant GUID form (no personal tenant values).
+                ["WakeMesh:Auth:Issuer"] = TestAuthFixture.Issuer,
+                ["WakeMesh:Auth:Audience"] = TestAuthFixture.Audience,
+                ["WakeMesh:Auth:RequiredScope"] = TestAuthFixture.RequiredScope,
+                ["WakeMesh:Auth:AllowedAzp"] = TestAuthFixture.AllowedAzp,
+                ["WakeMesh:Auth:AllowedOwnerOids:0"] = TestAuthFixture.AllowedOid,
+                // HTTPS metadata URL satisfies production ValidateAuthConfig; no real network fetch (static fixture below).
+                ["WakeMesh:Auth:MetadataAddress"] =
+                    $"https://login.microsoftonline.com/{TestAuthFixture.ConsumersTenantId}/v2.0/.well-known/openid-configuration",
+                ["WakeMesh:Fcm:Configured"] = "false",
+            };
+
+            if (_extraSettings is not null)
+            {
+                foreach (var (key, value) in _extraSettings)
+                {
+                    settings[key] = value;
+                }
+            }
+
+            return settings;
+        }
+    }
 
     // Keep the in-memory DB alive for the factory lifetime.
     private Microsoft.Data.Sqlite.SqliteConnection? _keepAlive;
@@ -81,7 +113,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Test");
+        builder.UseEnvironment(_environmentOverride ?? "Test");
         foreach (var kv in TestSettings)
         {
             builder.UseSetting(kv.Key, kv.Value);

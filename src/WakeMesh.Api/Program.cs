@@ -34,6 +34,13 @@ var postgresConnectionString = isPostgres
     ? PostgresConfiguration.ResolveConnectionString(connectionString)
     : connectionString;
 
+// Fail closed outside Development/Test: production PostgreSQL must verify the server certificate.
+// Pure validation only — the resolver and the design-time factories keep their existing behavior.
+if (isPostgres && !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Test"))
+{
+    PostgresConfiguration.EnsureVerifiedTls(postgresConnectionString);
+}
+
 builder.Services.AddDbContext<WakeMeshDbContext>(options =>
 {
     if (string.Equals(provider, "Sqlite", StringComparison.OrdinalIgnoreCase))
@@ -108,6 +115,18 @@ builder.Services.AddControllers();
 
 var app = builder.Build();
 
+// X-Content-Type-Options: nosniff on every response. Registered first (before UseExceptionHandler)
+// so it also covers 401 challenges and the 500 body the exception handler writes.
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Task.CompletedTask;
+    });
+    await next(context);
+});
+
 // Avoid developer exception pages that can echo Authorization headers.
 app.UseExceptionHandler(err =>
 {
@@ -155,6 +174,21 @@ static void ValidateAuthConfig(AuthOptions auth)
         // Do not echo configured secret/oid values.
         throw new InvalidOperationException(
             $"WakeMesh auth configuration is incomplete or fail-closed. Missing: {string.Join(',', missing)}");
+    }
+
+    // Single-owner guard: a second distinct non-blank OID silently makes that account a full
+    // co-manager of all data (no per-owner isolation). Fail loudly unless explicitly opted in.
+    // Report the count only — never the OID values.
+    var distinctOwners = (auth.AllowedOwnerOids ?? new List<string>())
+        .Where(oid => !string.IsNullOrWhiteSpace(oid))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Count();
+    if (distinctOwners > 1 && !auth.AllowMultipleOwners)
+    {
+        throw new InvalidOperationException(
+            $"WakeMesh auth configuration lists {distinctOwners} distinct AllowedOwnerOids. Every allowlisted " +
+            "OID co-manages all devices and groups (there is no per-owner isolation). Set " +
+            "AllowMultipleOwners=true to acknowledge this explicitly, or keep a single owner.");
     }
 }
 

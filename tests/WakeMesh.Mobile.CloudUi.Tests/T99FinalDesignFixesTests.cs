@@ -16,7 +16,7 @@ using Xunit;
 namespace WakeMesh.Mobile.CloudUi.Tests;
 
 /// <summary>
-/// T99 regression guards for the final design fixes that Themis approved (t87 canonical):
+/// T99 regression guards for the final design fixes from the canonical design pass:
 /// the 640dp column on the alarm list, the single-alarm stop button, the band state marks, the
 /// outcome-driven sync mark, the font-independent "not required" mark, the .png shell icons and the
 /// IsWeekly lifecycle subscription. Old T88/T89/T91/T92/T93 guards stay as they are; this file only
