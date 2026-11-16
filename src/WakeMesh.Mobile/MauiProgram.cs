@@ -45,6 +45,7 @@ public static class MauiProgram
 
         // プラットフォームネイティブ実装の注入
 #if ANDROID
+        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<TimePicker, Platforms.Android.WakeMeshTimePickerHandler>());
         builder.Services.AddSingleton<IAlarmScheduler, Platforms.Android.AndroidAlarmScheduler>();
         builder.Services.AddSingleton<IPermissionService, Platforms.Android.AndroidPermissionService>();
         builder.Services.AddSingleton<IAlarmRingingService, Platforms.Android.AndroidAlarmRingingService>();
