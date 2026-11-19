@@ -9,7 +9,7 @@ public static class WakeMeshServiceCollectionExtensions
     public static IServiceCollection AddWakeMeshCoreServices(this IServiceCollection services, string? alarmsPath = null, string? deviceIdPath = null)
     {
         services.AddSingleton<IAlarmStore>(_ => new JsonFileAlarmStore(alarmsPath ?? AlarmStoragePathHelper.GetAlarmsJsonPath()));
-        services.AddSingleton<IHolidayService>(_ => new JapaneseHolidayService());
+        services.AddSingleton<IHolidayService>(_ => JapaneseHolidayService.CreateBundled());
         services.AddSingleton<AlarmScheduleCalculator>();
         services.AddSingleton<IDeviceInfoProvider>(_ => new LocalDeviceInfoProvider(storageFilePath: deviceIdPath ?? AlarmStoragePathHelper.GetDeviceIdFilePath()));
         services.AddSingleton<AlarmCoordinator>();

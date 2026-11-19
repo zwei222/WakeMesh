@@ -31,7 +31,7 @@ public sealed class T93DiagnosticsStateKeyTests
         };
         var holiday = holidays
             ? new JapaneseHolidayService(holidays: new[] { new DateOnly(2026, 1, 1) })
-            : new JapaneseHolidayService();
+            : JapaneseHolidayService.CreateWithoutData();
         return new DiagnosticsViewModel(permission, holiday);
     }
 

@@ -163,7 +163,7 @@ public sealed class T88ReadinessAndStopGateTests : IDisposable
     [Fact]
     public void IsHolidayDataMissing_TracksHolidayServiceState()
     {
-        var withoutData = CreateVm(holiday: new JapaneseHolidayService());
+        var withoutData = CreateVm(holiday: JapaneseHolidayService.CreateWithoutData());
         Assert.True(withoutData.IsHolidayDataMissing);
 
         var withData = CreateVm(holiday: new JapaneseHolidayService(holidays: new[] { new DateOnly(2026, 1, 1) }));
@@ -241,7 +241,7 @@ public sealed class T88ReadinessAndStopGateTests : IDisposable
     {
         var perm = new MockPermissionService { OsApiLevel = 36 };
 
-        Assert.True(new DiagnosticsViewModel(perm, new JapaneseHolidayService()).IsHolidayDataMissing);
+        Assert.True(new DiagnosticsViewModel(perm, JapaneseHolidayService.CreateWithoutData()).IsHolidayDataMissing);
         Assert.False(new DiagnosticsViewModel(perm, new JapaneseHolidayService(holidays: new[] { new DateOnly(2026, 1, 1) })).IsHolidayDataMissing);
     }
 
@@ -250,7 +250,7 @@ public sealed class T88ReadinessAndStopGateTests : IDisposable
     [Fact]
     public void AlarmList_HolidayMissing_CopyIsPlainAndKeepsFailOpenMeaning()
     {
-        var vm = CreateVm(holiday: new JapaneseHolidayService());
+        var vm = CreateVm(holiday: JapaneseHolidayService.CreateWithoutData());
 
         Assert.Contains("祝日情報が未取得", vm.HolidayStatusText);
         Assert.Contains("祝日もアラーム対象", vm.HolidayStatusText);
@@ -262,7 +262,7 @@ public sealed class T88ReadinessAndStopGateTests : IDisposable
     {
         var vm = new DiagnosticsViewModel(
             new MockPermissionService { OsApiLevel = 36 },
-            new JapaneseHolidayService());
+            JapaneseHolidayService.CreateWithoutData());
 
         Assert.Contains("祝日のスキップは適用されません", vm.HolidayCoverageNotice);
         Assert.DoesNotContain("鳴動優先", vm.HolidayCoverageNotice);

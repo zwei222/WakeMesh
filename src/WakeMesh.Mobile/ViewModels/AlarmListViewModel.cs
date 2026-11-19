@@ -117,7 +117,7 @@ public sealed class AlarmListViewModel : ViewModelBase, IDisposable
     // T88 copy-map: the row states the fact in plain words. The service's internal warning text
     // ("祝日データ未取得 (鳴動優先)") stays on the settings page as the refresh detail, not here.
     public string HolidayStatusText => _holidayService.HasHolidayData
-        ? "祝日情報を取得済み（祝日はアラームが鳴りません）"
+        ? "内蔵の祝日データを確認済み（祝日はアラームが鳴りません）"
         : "祝日情報が未取得です（祝日もアラーム対象）";
 
     public string HolidayNotice => HolidayStatusText;

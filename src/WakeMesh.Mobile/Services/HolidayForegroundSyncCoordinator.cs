@@ -17,8 +17,10 @@ public sealed class HolidayForegroundSyncCoordinator
     }
 
     /// <summary>
-    /// Checks for initial missing data or stale cache (>30 days) and triggers background refresh
-    /// without blocking the UI or broadcast receiver threads. Reschedules alarms ONLY on successful refresh.
+    /// Checks <see cref="IHolidayService.NeedsRefresh"/> and, when a refresh is needed, re-checks
+    /// holiday data without blocking the UI or broadcast receiver threads. Reschedules alarms ONLY
+    /// on success. The bundled production service reports NeedsRefresh=false, so this is inert there;
+    /// the seam remains for injected services and existing tests.
     /// </summary>
     public void RequestForegroundSync()
     {

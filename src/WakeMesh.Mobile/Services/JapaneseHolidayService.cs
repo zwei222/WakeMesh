@@ -1,179 +1,162 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using WakeMesh.Core;
 
 namespace WakeMesh.Mobile.Services;
 
+/// <summary>
+/// Holiday lookup for the app. The only data source is the JpCalendar data bundled into the app
+/// through <see cref="BundledHolidayCalendar"/>; there is no runtime download or cache write.
+/// Existing seams (constructor injection, <see cref="IHolidayService"/>) are preserved.
+/// </summary>
 public sealed class JapaneseHolidayService : IHolidayService
 {
-    public const string CabinetOfficeHolidayCsvUrl = "https://www8.cao.go.jp/chosei/shukujitsu/syukujitsu.csv";
+    private const string MissingDataWarning = "祝日情報が未取得です（祝日もアラーム対象）";
 
     private HolidayCalendar? _calendar;
     private string? _warningMessage;
-    private readonly string _cacheFilePath;
-    private readonly HolidayCalendarParser _parser = new();
-    private static readonly HttpClient DefaultHttpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly object _sync = new();
 
     public bool HasHolidayData => _calendar is not null;
     public string? DataWarning => _warningMessage;
     public HolidayCalendar? Calendar => _calendar;
 
-    public bool NeedsRefresh
-    {
-        get
-        {
-            if (_calendar is null) return true;
-            return (DateTimeOffset.UtcNow - _calendar.RetrievedAt) > TimeSpan.FromDays(30);
-        }
-    }
+    /// <summary>Bundled data is fixed at build time, so it never needs a refresh.</summary>
+    public bool NeedsRefresh => false;
 
     public string HolidayStatusSummary
     {
         get
         {
-            if (_calendar is null)
+            var calendar = _calendar;
+            if (calendar is null)
             {
-                return _warningMessage ?? "祝日情報が未取得です（祝日もアラーム対象）";
+                return _warningMessage ?? MissingDataWarning;
             }
 
-            var coverage = $"{_calendar.CoverageStartInclusive:yyyy/MM/dd}〜{_calendar.CoverageEndInclusive:yyyy/MM/dd}";
+            var coverage = $"{calendar.CoverageStartInclusive:yyyy/MM/dd}〜{calendar.CoverageEndInclusive:yyyy/MM/dd}";
             if (!string.IsNullOrEmpty(_warningMessage))
             {
-                return $"{_warningMessage} [現行データ: {coverage}]";
+                return $"{_warningMessage} [内蔵祝日データ: {coverage}]";
             }
-            return $"祝日データ適用済み ({coverage}、※最終祝日以降の年末はCore仕様上未判定・祝日もアラーム対象)";
+
+            var label = string.IsNullOrWhiteSpace(calendar.VersionLabel)
+                ? "内蔵祝日データ"
+                : calendar.VersionLabel;
+            return $"祝日データ適用済み [{label}、{coverage}、※カバレッジ外は未判定・祝日もアラーム対象]";
         }
     }
 
-    public JapaneseHolidayService()
-        : this(initialCalendar: null, cacheFilePath: null, warningMessage: null)
+    private JapaneseHolidayService(HolidayCalendar? calendar, string? warningMessage)
+    {
+        _calendar = calendar;
+        _warningMessage = warningMessage;
+    }
+
+    /// <summary>Production entry point: the verified JpCalendar data compiled into the app.</summary>
+    public static JapaneseHolidayService CreateBundled() => new(BundledHolidayCalendar.Current);
+
+    /// <summary>Explicit "no holiday data" fixture: alarms fail open and ring on holidays.</summary>
+    public static JapaneseHolidayService CreateWithoutData(string? warningMessage = null) =>
+        new(null, warningMessage ?? MissingDataWarning);
+
+    [ActivatorUtilitiesConstructor]
+    public JapaneseHolidayService() : this(BundledHolidayCalendar.Current)
     {
     }
 
-    [ActivatorUtilitiesConstructor]
+    private JapaneseHolidayService(BundledHolidayCalendarResult result)
+        : this(result.Calendar, result.Calendar is null ? result.FailureReason : null)
+    {
+    }
+
+    /// <summary>
+    /// Injected-calendar seam used by tests and callers that already hold a calendar.
+    /// A null <paramref name="initialCalendar"/> still means "no data" (fail open).
+    /// <param name="cacheFilePath"/> is accepted for source compatibility only: legacy cache
+    /// bytes are never read, written or migrated.
+    /// </summary>
     public JapaneseHolidayService(
         HolidayCalendar? initialCalendar = null,
         string? cacheFilePath = null,
         string? warningMessage = null)
+        : this(initialCalendar, initialCalendar is null ? warningMessage ?? MissingDataWarning : warningMessage)
     {
-        _cacheFilePath = cacheFilePath ?? AlarmStoragePathHelper.GetHolidayCacheFilePath();
-        _warningMessage = warningMessage;
-
-        if (initialCalendar is not null)
-        {
-            _calendar = initialCalendar;
-        }
-        else if (File.Exists(_cacheFilePath))
-        {
-            try
-            {
-                using var fs = File.OpenRead(_cacheFilePath);
-                var lastWrite = File.GetLastWriteTimeUtc(_cacheFilePath);
-                _calendar = _parser.Parse(fs, lastWrite, "キャッシュ祝日データ");
-            }
-            catch (Exception ex)
-            {
-                _warningMessage = $"キャッシュ読み込み失敗: {ex.Message}";
-                _calendar = null;
-            }
-        }
-        else
-        {
-            _calendar = null;
-            _warningMessage ??= "祝日情報が未取得です（祝日もアラーム対象）";
-        }
+        _ = cacheFilePath;
     }
 
     public JapaneseHolidayService(
         IReadOnlyList<DateOnly>? holidays,
         string? warningMessage = null,
         string? cacheFilePath = null)
+        : this(BuildFromDates(holidays), holidays is null || holidays.Count == 0 ? warningMessage ?? MissingDataWarning : warningMessage)
     {
-        _cacheFilePath = cacheFilePath ?? AlarmStoragePathHelper.GetHolidayCacheFilePath();
-        _warningMessage = warningMessage;
+        _ = cacheFilePath;
+    }
 
-        if (holidays is not null)
+    private static HolidayCalendar? BuildFromDates(IReadOnlyList<DateOnly>? holidays)
+    {
+        if (holidays is null || holidays.Count == 0)
         {
-            var datesList = holidays.OrderBy(d => d).ToList();
-            if (datesList.Count > 0)
-            {
-                _calendar = new HolidayCalendar
-                {
-                    RetrievedAt = DateTimeOffset.UtcNow,
-                    VersionLabel = "テスト祝日データ",
-                    CoverageStartInclusive = datesList[0],
-                    CoverageEndInclusive = datesList[^1],
-                    Dates = datesList.ToHashSet()
-                };
-            }
+            return null;
         }
-        else
+
+        var dates = holidays.OrderBy(d => d).ToList();
+        return new HolidayCalendar
         {
-            _calendar = null;
-            _warningMessage ??= "祝日情報が未取得です（祝日もアラーム対象）";
-        }
+            RetrievedAt = DateTimeOffset.UtcNow,
+            VersionLabel = "テスト祝日データ",
+            CoverageStartInclusive = dates[0],
+            CoverageEndInclusive = dates[^1],
+            Dates = dates.ToHashSet()
+        };
     }
 
     public bool IsHoliday(DateOnly date)
     {
-        if (_calendar is null)
+        var calendar = _calendar;
+        if (calendar is null)
         {
-            // Fail-open: Without holiday data, ring on schedule (alarm priority)
+            // Fail-open: without trusted holiday data, ring on schedule (alarm priority).
             return false;
         }
 
-        var classification = _calendar.Classify(date);
-        return classification == HolidayDateKind.Holiday;
+        return calendar.Classify(date) == HolidayDateKind.Holiday;
     }
 
-    public IReadOnlySet<DateOnly> GetHolidays()
-    {
-        return _calendar?.Dates ?? (IReadOnlySet<DateOnly>)new HashSet<DateOnly>();
-    }
+    public IReadOnlySet<DateOnly> GetHolidays() =>
+        _calendar?.Dates ?? (IReadOnlySet<DateOnly>)new HashSet<DateOnly>();
 
-    public Task<bool> RefreshHolidaysAsync() => RefreshFromOfficialAsync();
-
-    public async Task<bool> RefreshFromOfficialAsync(HttpClient? httpClient = null)
+    /// <summary>
+    /// The diagnostics refresh action re-checks the bundled data. It never performs a download or
+    /// touches the legacy cache; when the data is available the caller recalculates and re-registers.
+    /// </summary>
+    public Task<bool> RefreshHolidaysAsync()
     {
-        var client = httpClient ?? DefaultHttpClient;
-        try
+        var result = BundledHolidayCalendar.Current;
+        if (result.Calendar is null)
         {
-            using var response = await client.GetAsync(CabinetOfficeHolidayCsvUrl);
-            response.EnsureSuccessStatusCode();
-
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            using var stream = new MemoryStream(bytes);
-
-            var calendar = _parser.Parse(stream, DateTimeOffset.UtcNow, "内閣府公式祝日CSV");
-
-            // Save to cache file atomically
-            var dir = Path.GetDirectoryName(_cacheFilePath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            lock (_sync)
             {
-                Directory.CreateDirectory(dir);
+                _warningMessage = result.FailureReason;
             }
 
-            var tempFile = _cacheFilePath + ".tmp." + Guid.NewGuid().ToString("N");
-            await File.WriteAllBytesAsync(tempFile, bytes);
-            File.Move(tempFile, _cacheFilePath, overwrite: true);
+            return Task.FromResult(false);
+        }
 
-            _calendar = calendar;
-            _warningMessage = null;
-            return true;
-        }
-        catch (Exception ex)
+        lock (_sync)
         {
-            // Maintain existing data on failure, do not wipe
-            _warningMessage = _calendar is not null
-                ? $"祝日データ更新失敗 (既存データ維持): {ex.Message}"
-                : $"祝日データ取得失敗（祝日もアラーム対象）: {ex.Message}";
-            return false;
+            // Keep an explicitly injected calendar; only fill the "no data" state from the bundle.
+            if (_calendar is null)
+            {
+                _calendar = result.Calendar;
+                _warningMessage = null;
+            }
         }
+
+        return Task.FromResult(true);
     }
 }

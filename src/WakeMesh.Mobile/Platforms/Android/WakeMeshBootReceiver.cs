@@ -38,7 +38,7 @@ public sealed class WakeMeshBootReceiver : BroadcastReceiver
                 {
                     var filePath = AlarmStoragePathHelper.GetAlarmsJsonPath();
                     var store = new JsonFileAlarmStore(filePath);
-                    var holiday = new JapaneseHolidayService(cacheFilePath: AlarmStoragePathHelper.GetHolidayCacheFilePath());
+                    var holiday = JapaneseHolidayService.CreateBundled();
                     var calc = new AlarmScheduleCalculator(holiday);
                     var scheduler = new AndroidAlarmScheduler(context);
                     var coordinator = new AlarmCoordinator(store, calc, scheduler);

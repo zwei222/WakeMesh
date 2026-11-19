@@ -74,7 +74,7 @@ public sealed class WakeMeshAlarmReceiver : BroadcastReceiver
                 {
                     try
                     {
-                        var holiday = new JapaneseHolidayService(cacheFilePath: AlarmStoragePathHelper.GetHolidayCacheFilePath());
+                        var holiday = JapaneseHolidayService.CreateBundled();
                         var calc = new AlarmScheduleCalculator(holiday);
                         var scheduler = new AndroidAlarmScheduler(context);
 

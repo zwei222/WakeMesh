@@ -258,17 +258,14 @@ public class T7MobileWiringTests : IDisposable
     // --- 3. Holiday Refresh, Lifecycle Auto-refresh, and Honest Coverage Warning ---
 
     [Fact]
-    public async Task Diagnostics_RefreshHolidays_OnFailure_RetainsExistingCacheAndReportsReason()
+    public async Task Diagnostics_RefreshHolidays_OnFailure_RetainsExistingDataAndReportsReason()
     {
-        var cacheFile = Path.Combine(_tempDir, "holiday_cache.csv");
-        // Create an existing valid cache
         var initialDates = new[] { new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 12) };
-        var holiday = new JapaneseHolidayService(holidays: initialDates, cacheFilePath: cacheFile);
+        var holiday = new JapaneseHolidayService(holidays: initialDates);
 
         var calc = new AlarmScheduleCalculator(holiday);
         var coordinator = new AlarmCoordinator(_store, calc, _scheduler);
         var perm = new MockPermissionService();
-        var vm = new DiagnosticsViewModel(perm, holiday, _deviceInfoProvider, coordinator);
 
         // Set failure warning
         var failureHoliday = new FailingHolidayService(initialDates, "503 サービス停止中");
@@ -277,7 +274,7 @@ public class T7MobileWiringTests : IDisposable
         await vmWithFailure.RefreshHolidaysCommand.ExecuteAsync(null);
 
         Assert.Contains("503 サービス停止中", vmWithFailure.HolidayOperationMessage);
-        Assert.True(failureHoliday.HasHolidayData); // Existing cache retained!
+        Assert.True(failureHoliday.HasHolidayData); // Existing data retained!
     }
 
     [Fact]

@@ -46,8 +46,8 @@ public class AlarmViewModelsTests : IDisposable
 
         Assert.Equal("未接続 (ローカル動作中)", vm.CloudSyncStatusText);
         Assert.Equal("未サインイン", vm.AuthStatusText);
-        // T88 copy-map: 祝日データ適用済み → 祝日情報を取得済み (meaning unchanged)
-        Assert.Contains("祝日情報を取得済み", vm.HolidayStatusText);
+        // T88 copy-map: 祝日データ適用済み → 内蔵の祝日データを確認済み (meaning unchanged)
+        Assert.Contains("内蔵の祝日データを確認済み", vm.HolidayStatusText);
 
         await vm.LoadAlarmsCommand.ExecuteAsync(null);
         Assert.Empty(vm.Alarms); // 起動時に勝手なサンプルアラームなし

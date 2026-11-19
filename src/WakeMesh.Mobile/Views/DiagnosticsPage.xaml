@@ -46,7 +46,7 @@
                     <VerticalStackLayout Spacing="10">
                         <controls:StateIndicator StateKey="{Binding HolidayStateKey}" Text="{Binding HolidayStatus}" />
                         <Label Text="{Binding HolidayCoverageNotice}" FontSize="13" TextColor="{StaticResource Ink2}" />
-                        <Button Text="祝日を更新" Command="{Binding RefreshHolidaysCommand}" Style="{StaticResource SecondaryButtonStyle}" />
+                        <Button Text="祝日データを確認" Command="{Binding RefreshHolidaysCommand}" Style="{StaticResource SecondaryButtonStyle}" />
                         <Label Text="{Binding HolidayOperationMessage}" FontSize="13" TextColor="{StaticResource Ink2}" />
                     </VerticalStackLayout>
                 </Border>

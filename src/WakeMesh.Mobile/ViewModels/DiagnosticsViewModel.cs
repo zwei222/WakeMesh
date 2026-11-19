@@ -173,12 +173,13 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         {
             if (_holidayService.Calendar is null)
             {
-                return "祝日情報を取得するまで、祝日のスキップは適用されません（祝日もアラーム対象）。";
+                return "内蔵祝日データを利用できないため、祝日のスキップは適用されません（祝日もアラーム対象）。";
             }
 
             var cal = _holidayService.Calendar;
-            return $"カバレッジ: {cal.CoverageStartInclusive:yyyy/MM/dd}〜{cal.CoverageEndInclusive:yyyy/MM/dd} (内閣府公表)。" +
-                   $"※ 内閣府CSV仕様により最終祝日（{cal.CoverageEndInclusive:yyyy/MM/dd}）以降の年末はCore仕様上カバレッジ外（未判定・祝日もアラーム対象）となる制約があります。";
+            var label = string.IsNullOrWhiteSpace(cal.VersionLabel) ? "内蔵祝日データ" : cal.VersionLabel;
+            return $"{label} のカバレッジ: {cal.CoverageStartInclusive:yyyy/MM/dd}〜{cal.CoverageEndInclusive:yyyy/MM/dd}。" +
+                   $"※ カバレッジ最終日（{cal.CoverageEndInclusive:yyyy/MM/dd}）より後は未判定（カバレッジ外・祝日もアラーム対象）です。";
         }
     }
 
@@ -368,7 +369,7 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         {
             if (IsBusy) return;
             IsBusy = true;
-            HolidayOperationMessage = "祝日データを取得中...";
+            HolidayOperationMessage = "内蔵祝日データを確認中...";
             try
             {
                 var success = await _holidayService.RefreshHolidaysAsync();
@@ -377,16 +378,16 @@ public sealed class DiagnosticsViewModel : ViewModelBase
                     if (_alarmCoordinator is not null)
                     {
                         var count = await _alarmCoordinator.RescheduleAllActiveAsync();
-                        HolidayOperationMessage = $"祝日データを更新し、{count} 件のアラームを再計算・再登録しました。";
+                        HolidayOperationMessage = $"祝日データを確認し、{count} 件のアラームを再計算・再登録しました。";
                     }
                     else
                     {
-                        HolidayOperationMessage = "祝日データを更新しました。";
+                        HolidayOperationMessage = "祝日データを確認しました。";
                     }
                 }
                 else
                 {
-                    HolidayOperationMessage = _holidayService.DataWarning ?? "祝日データの更新に失敗しました（既存データ維持）。";
+                    HolidayOperationMessage = _holidayService.DataWarning ?? "内蔵祝日データを確認できませんでした（祝日もアラーム対象）。";
                 }
                 UpdateProperties();
             }
