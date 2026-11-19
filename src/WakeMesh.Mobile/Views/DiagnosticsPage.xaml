@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:WakeMesh.Mobile.Controls"
+             x:Class="WakeMesh.Mobile.Views.DiagnosticsPage"
+             x:DataType="vm:DiagnosticsViewModel"
+             Title="設定" BackgroundColor="{StaticResource Bg}">
+    <ContentPage.Resources>
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button"><Setter Property="BackgroundColor" Value="Transparent"/><Setter Property="TextColor" Value="{StaticResource Ink}"/><Setter Property="BorderColor" Value="{StaticResource LineStrong}"/><Setter Property="BorderWidth" Value="1"/><Setter Property="MinimumHeightRequest" Value="48"/></Style>
+        <Style x:Key="TextButtonStyle" TargetType="Button"><Setter Property="BackgroundColor" Value="Transparent"/><Setter Property="TextColor" Value="{StaticResource Ink}"/><Setter Property="MinimumHeightRequest" Value="48"/></Style>
+    </ContentPage.Resources>
+    <ScrollView>
+        <VerticalStackLayout MaximumWidthRequest="640" HorizontalOptions="Center" Padding="16" Spacing="24">
+            <VerticalStackLayout Spacing="12">
+                <Label Text="アラームを鳴らす準備" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <controls:StateIndicator StateKey="{Binding PermissionSummaryStateKey}" Text="{Binding PermissionStatusSummary}" />
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="正確なアラーム" FontSize="15" TextColor="{StaticResource Ink}" />
+                            <controls:StateIndicator StateKey="{Binding ExactAlarmStateKey}" Text="{Binding ExactAlarmStatus}" />
+                            <Button Text="{Binding ExactAlarmActionText}" Command="{Binding OpenExactAlarmSettingsCommand}" IsEnabled="{Binding CanOpenExactAlarmSettings}" IsVisible="{Binding CanOpenExactAlarmSettings}" Style="{StaticResource SecondaryButtonStyle}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="通知" FontSize="15" TextColor="{StaticResource Ink}" />
+                            <controls:StateIndicator StateKey="{Binding NotificationStateKey}" Text="{Binding NotificationStatus}" />
+                            <Button Text="{Binding NotificationActionText}" Command="{Binding RequestNotificationCommand}" IsEnabled="{Binding CanRequestNotification}" IsVisible="{Binding CanRequestNotification}" Style="{StaticResource SecondaryButtonStyle}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="全画面表示" FontSize="15" TextColor="{StaticResource Ink}" />
+                            <controls:StateIndicator StateKey="{Binding FullScreenStateKey}" Text="{Binding FullScreenStatus}" />
+                            <Button Text="{Binding FullScreenActionText}" Command="{Binding OpenFullScreenSettingsCommand}" IsEnabled="{Binding CanOpenFullScreenSettings}" IsVisible="{Binding CanOpenFullScreenSettings}" Style="{StaticResource SecondaryButtonStyle}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="省電力・Doze回避" FontSize="15" TextColor="{StaticResource Ink}" />
+                            <controls:StateIndicator StateKey="{Binding BatteryStateKey}" Text="{Binding BatteryStatus}" />
+                            <Button Text="{Binding BatteryActionText}" Command="{Binding OpenBatteryOptimizationSettingsCommand}" IsEnabled="{Binding CanOpenBatteryOptimizationSettings}" IsVisible="{Binding CanOpenBatteryOptimizationSettings}" Style="{StaticResource SecondaryButtonStyle}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="祝日" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <controls:StateIndicator StateKey="{Binding HolidayStateKey}" Text="{Binding HolidayStatus}" />
+                        <Label Text="{Binding HolidayCoverageNotice}" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <Button Text="祝日データを確認" Command="{Binding RefreshHolidaysCommand}" Style="{StaticResource SecondaryButtonStyle}" />
+                        <Label Text="{Binding HolidayOperationMessage}" FontSize="13" TextColor="{StaticResource Ink2}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="アラームが鳴る画面の背景" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="12">
+                            <controls:RingingThemeOption ThemeId="sunrise" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Column="1" ThemeId="sky" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Row="1" ThemeId="forest" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                            <controls:RingingThemeOption Grid.Row="1" Grid.Column="1" ThemeId="night" SelectedThemeId="{Binding RingingThemeId}" Command="{Binding SelectRingingThemeCommand}" />
+                        </Grid>
+                        <Label Text="次にアラームが鳴るときから適用されます" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <Label Text="{Binding RingingThemeErrorMessage}" FontSize="13" TextColor="{StaticResource Ink2}">
+                            <Label.Triggers><DataTrigger TargetType="Label" Binding="{Binding RingingThemeErrorMessage}" Value=""><Setter Property="IsVisible" Value="False" /></DataTrigger></Label.Triggers>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="クラウド" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="0">
+                    <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="48">
+                        <VerticalStackLayout><Label Text="接続アカウント" FontSize="15" TextColor="{StaticResource Ink}"/><Label Text="{Binding AuthStatus}" FontSize="13" TextColor="{StaticResource Ink2}"/></VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="24" TextColor="{StaticResource Ink3}" VerticalOptions="Center" />
+                        <Grid.GestureRecognizers><TapGestureRecognizer Tapped="OnAccountTapped"/></Grid.GestureRecognizers>
+                    </Grid>
+                </Border>
+                <Label Text="端末ごとの同期状況はクラウドタブで確認できます" FontSize="13" TextColor="{StaticResource Ink2}" />
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="12">
+                <Label Text="この端末" FontSize="13" TextColor="{StaticResource Ink2}" />
+                <Border BackgroundColor="{StaticResource Surface1}" Stroke="{StaticResource Line}" StrokeShape="RoundRectangle 12" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="{Binding DeviceDisplayName}" FontSize="17" TextColor="{StaticResource Ink}" />
+                        <Label Text="{Binding OsVersionText}" FontSize="13" TextColor="{StaticResource Ink2}" />
+                        <Button Text="端末の詳細を表示" Clicked="OnToggleDeviceDetails" Style="{StaticResource TextButtonStyle}" />
+                        <Label x:Name="DeviceIdLabel" Text="{Binding DeviceId}" IsVisible="False" FontFamily="monospace" FontSize="12" TextColor="{StaticResource Ink3}" />
+                        <Button Text="診断を再実行・アラームを再登録" Command="{Binding RefreshCommand}" Style="{StaticResource SecondaryButtonStyle}" />
+                        <Label Text="{Binding RescheduledMessage}" FontSize="13" TextColor="{StaticResource Ink2}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

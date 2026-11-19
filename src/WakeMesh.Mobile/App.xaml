@@ -1,0 +1,25 @@
+﻿<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:WakeMesh.Mobile"
+             xmlns:converters="clr-namespace:WakeMesh.Mobile.Converters"
+             x:Class="WakeMesh.Mobile.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <converters:BoolToColorConverter x:Key="DaySelectedColorConverter" TrueColor="{StaticResource Ink}" FalseColor="{StaticResource Surface2}" />
+                        <converters:BoolToColorConverter x:Key="DaySelectedTextColorConverter" TrueColor="{StaticResource OnInk}" FalseColor="{StaticResource Ink}" />
+                                                         <converters:NextFireTextConverter x:Key="NextFireTextConverter" />
+            <converters:NullableDateVisibleConverter x:Key="NullableDateVisibleConverter" />
+            <converters:AlarmDaysTextConverter x:Key="AlarmDaysTextConverter" />
+            <converters:ReadinessLevelVisibleConverter x:Key="ReadinessLevelVisibleConverter" />
+                    <converters:StringNotEmptyToBoolConverter x:Key="StringNotEmptyToBoolConverter" />
+            <converters:SoundOptionConverter x:Key="SoundOptionConverter" />
+                    <converters:ZeroVolumeVisibleConverter x:Key="ZeroVolumeVisibleConverter" />
+            <converters:StateKeyToShortLabelConverter x:Key="StateKeyToShortLabelConverter" />
+            <converters:EmptyCollectionVisibleConverter x:Key="EmptyCollectionVisibleConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

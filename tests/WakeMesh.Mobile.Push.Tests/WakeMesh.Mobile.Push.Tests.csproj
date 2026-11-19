@@ -1,0 +1,59 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <WakeMeshAuthClientId Condition="'$(WakeMeshAuthClientId)' == ''">11111111-1111-4111-8111-111111111111</WakeMeshAuthClientId>
+  </PropertyGroup>
+
+  <!-- Generate CompiledAuthConstants.g.cs before CoreCompile into IntermediateOutputPath -->
+  <Target Name="GenerateCompiledAuthConstants" BeforeTargets="BeforeCompile;CoreCompile">
+    <PropertyGroup>
+      <_GeneratedAuthConstantsFile>$(IntermediateOutputPath)CompiledAuthConstants.g.cs</_GeneratedAuthConstantsFile>
+      <_AuthConstantsLines>
+// &lt;auto-generated /&gt;
+namespace WakeMesh.Mobile%3B
+
+public static class CompiledAuthConstants
+{
+    public const string CompileTimeClientId = "$(WakeMeshAuthClientId)"%3B
+    public const string CompileTimeScheme = "msal$(WakeMeshAuthClientId)"%3B
+    public const string CompileTimeHost = "auth"%3B
+    public const string CompileTimeRedirectUri = "msal$(WakeMeshAuthClientId)://auth"%3B
+}
+      </_AuthConstantsLines>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_GeneratedAuthConstantsFile)" Lines="$(_AuthConstantsLines)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(_GeneratedAuthConstantsFile)" />
+      <FileWrites Include="$(_GeneratedAuthConstantsFile)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageReference Include="Microsoft.Maui.Controls.Core" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.92.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WakeMesh.Core\WakeMesh.Core.csproj" />
+    <ProjectReference Include="..\..\src\WakeMesh.Client\WakeMesh.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\WakeMesh.Mobile\Models\**\*.cs" Link="Imported\Models\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\**\*.cs" Link="Imported\Services\%(RecursiveDir)%(Filename)%(Extension)" Exclude="..\..\src\WakeMesh.Mobile\Services\Android\**\*.cs" />
+  </ItemGroup>
+
+</Project>

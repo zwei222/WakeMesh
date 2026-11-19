@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WakeMesh.Core/WakeMesh.Core.csproj" />
+    <Project Path="src/WakeMesh.Api/WakeMesh.Api.csproj" />
+    <Project Path="src/WakeMesh.Api.PostgresMigrations/WakeMesh.Api.PostgresMigrations.csproj" />
+    <Project Path="src/WakeMesh.Client/WakeMesh.Client.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WakeMesh.Core.Tests/WakeMesh.Core.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Api.Tests/WakeMesh.Api.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Client.Tests/WakeMesh.Client.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Mobile.Tests/WakeMesh.Mobile.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Mobile.Sync.Tests/WakeMesh.Mobile.Sync.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Mobile.CloudUi.Tests/WakeMesh.Mobile.CloudUi.Tests.csproj" />
+    <Project Path="tests/WakeMesh.Mobile.Push.Tests/WakeMesh.Mobile.Push.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,501 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             xmlns:models="clr-namespace:WakeMesh.Mobile.Models"
+             xmlns:controls="clr-namespace:WakeMesh.Mobile.Controls"
+             x:Class="WakeMesh.Mobile.Views.CloudAlarmGroupEditPage"
+             x:DataType="vm:CloudAlarmGroupEditViewModel"
+             Title="グループを編集"
+             BackgroundColor="{StaticResource Bg}">
+
+  <ContentPage.Resources>
+    <Style x:Key="TitleText" TargetType="Label">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+    </Style>
+    <Style x:Key="BodyText" TargetType="Label">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+    </Style>
+    <Style x:Key="CaptionText" TargetType="Label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="TextColor" Value="{StaticResource Ink2}" />
+      <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+    <Style x:Key="FieldLabelText" TargetType="Label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="TextColor" Value="{StaticResource Ink2}" />
+      <Setter Property="Margin" Value="0,12,0,6" />
+    </Style>
+    <Style x:Key="SectionHeaderText" TargetType="Label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="TextColor" Value="{StaticResource Ink2}" />
+      <Setter Property="Margin" Value="0,24,0,8" />
+    </Style>
+    <Style x:Key="CardSurface" TargetType="Border">
+      <Setter Property="BackgroundColor" Value="{StaticResource Surface1}" />
+      <Setter Property="Stroke" Value="Transparent" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style x:Key="PrimaryButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="{StaticResource Ink}" />
+      <Setter Property="TextColor" Value="{StaticResource OnInk}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="16,0" />
+    </Style>
+    <Style x:Key="SecondaryButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+      <Setter Property="BorderColor" Value="{StaticResource LineStrong}" />
+      <Setter Property="BorderWidth" Value="1" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style x:Key="DestructiveButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Crit}" />
+      <Setter Property="BorderColor" Value="{StaticResource Crit}" />
+      <Setter Property="BorderWidth" Value="1" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style x:Key="WeekdayChip" TargetType="Button">
+      <Setter Property="MinimumHeightRequest" Value="72" />
+      <Setter Property="MinimumWidthRequest" Value="48" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="BorderWidth" Value="1" />
+      <Setter Property="BorderColor" Value="{StaticResource LineStrong}" />
+      <Setter Property="BackgroundColor" Value="{StaticResource Surface2}" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style x:Key="FieldInput" TargetType="Entry">
+      <Setter Property="BackgroundColor" Value="{StaticResource Surface2}" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+      <Setter Property="PlaceholderColor" Value="{StaticResource Ink3}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+    </Style>
+  </ContentPage.Resources>
+
+  <Grid RowDefinitions="*,Auto">
+
+    <ScrollView Grid.Row="0">
+      <VerticalStackLayout MaximumWidthRequest="640"
+                           Padding="16,8,16,24"
+                           Spacing="0"
+                           HorizontalOptions="Center">
+
+        <!-- S4-1 conflict: the ETag only ever appears inside ConflictMessage. -->
+        <Border IsVisible="{Binding ConflictDetected}"
+                BackgroundColor="{StaticResource CritSurface}"
+                Stroke="{StaticResource Crit}"
+                StrokeShape="RoundRectangle 12"
+                Padding="16"
+                Margin="0,12,0,0">
+          <VerticalStackLayout Spacing="8">
+            <HorizontalStackLayout Spacing="8">
+              <controls:StateIndicator StateKey="critical" />
+              <Label Style="{StaticResource TitleText}" Text="他の場所で更新されています" />
+            </HorizontalStackLayout>
+            <Label Style="{StaticResource CaptionText}" Text="{Binding ConflictMessage}" />
+            <Button Style="{StaticResource SecondaryButton}"
+                    Text="サーバーの最新を読み込む"
+                    Clicked="OnReloadClicked"
+                    HorizontalOptions="Start" />
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- S4-2 save outcome: no fixed "保存完了" title, only what the view model reports. -->
+        <Border IsVisible="{Binding SaveOutcomeNotice, Converter={StaticResource StringNotEmptyToBoolConverter}}"
+                BackgroundColor="{StaticResource Surface1}"
+                Stroke="Transparent"
+                StrokeShape="RoundRectangle 12"
+                Padding="16"
+                Margin="0,12,0,0">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <controls:StateIndicator StateKey="pending" VerticalOptions="Start" />
+            <Label Grid.Column="1"
+                   Style="{StaticResource CaptionText}"
+                   Text="{Binding SaveOutcomeNotice}" />
+          </Grid>
+        </Border>
+
+        <Label Style="{StaticResource SectionHeaderText}" Text="基本" />
+        <Border Style="{StaticResource CardSurface}" StrokeShape="RoundRectangle 12">
+          <VerticalStackLayout Spacing="8">
+            <Label Style="{StaticResource CaptionText}" Text="名前" />
+            <Entry Style="{StaticResource FieldInput}" Text="{Binding Label}" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+              <Label Style="{StaticResource BodyText}"
+                     Text="このグループを有効にする"
+                     VerticalOptions="Center" />
+              <Switch Grid.Column="1" IsToggled="{Binding Enabled}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+              <VerticalStackLayout Spacing="2">
+                <Label Style="{StaticResource BodyText}" Text="祝日を除外" />
+                <Label Style="{StaticResource CaptionText}" Text="日本の国民の祝日と振替休日はアラームが鳴りません" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="1" IsToggled="{Binding ExcludeHolidays}" VerticalOptions="Center" />
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
+
+        <Label Style="{StaticResource SectionHeaderText}" Text="繰り返し" />
+        <Border Style="{StaticResource CardSurface}" StrokeShape="RoundRectangle 12">
+          <Grid>
+            <VisualStateManager.VisualStateGroups>
+              <VisualStateGroup>
+                <VisualState x:Name="NarrowWeek">
+                  <VisualState.StateTriggers>
+                    <AdaptiveTrigger MinWindowWidth="0" />
+                  </VisualState.StateTriggers>
+                  <VisualState.Setters>
+                    <Setter TargetName="NarrowWeekChips" Property="IsVisible" Value="True" />
+                    <Setter TargetName="WideWeekChips" Property="IsVisible" Value="False" />
+                  </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideWeek">
+                  <VisualState.StateTriggers>
+                    <AdaptiveTrigger MinWindowWidth="480" />
+                  </VisualState.StateTriggers>
+                  <VisualState.Setters>
+                    <Setter TargetName="NarrowWeekChips" Property="IsVisible" Value="False" />
+                    <Setter TargetName="WideWeekChips" Property="IsVisible" Value="True" />
+                  </VisualState.Setters>
+                </VisualState>
+              </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+
+            <!-- under 480dp: 4 columns × 2 rows (月火水木 / 金土日) -->
+            <Grid x:Name="NarrowWeekChips"
+                  ColumnDefinitions="*,*,*,*"
+                  RowDefinitions="Auto,Auto"
+                  ColumnSpacing="4"
+                  RowSpacing="4">
+              <Button x:Name="MondayChipNarrow"
+                      Grid.Row="0" Grid.Column="0"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="月"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayMonday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayMonday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayMonday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="TuesdayChipNarrow"
+                      Grid.Row="0" Grid.Column="1"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="火"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayTuesday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayTuesday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayTuesday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="WednesdayChipNarrow"
+                      Grid.Row="0" Grid.Column="2"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="水"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayWednesday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayWednesday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayWednesday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="ThursdayChipNarrow"
+                      Grid.Row="0" Grid.Column="3"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="木"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayThursday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayThursday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayThursday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="FridayChipNarrow"
+                      Grid.Row="1" Grid.Column="0"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="金"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayFriday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayFriday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayFriday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="SaturdayChipNarrow"
+                      Grid.Row="1" Grid.Column="1"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="土"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DaySaturday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DaySaturday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DaySaturday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="SundayChipNarrow"
+                      Grid.Row="1" Grid.Column="2"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="日"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DaySunday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DaySunday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DaySunday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+            </Grid>
+
+            <!-- 480dp and wider: 7 columns × 1 row -->
+            <Grid x:Name="WideWeekChips"
+                  IsVisible="False"
+                  ColumnDefinitions="*,*,*,*,*,*,*"
+                  ColumnSpacing="4">
+              <Button x:Name="MondayChipWide"
+                      Grid.Column="0"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="月"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayMonday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayMonday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayMonday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="TuesdayChipWide"
+                      Grid.Column="1"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="火"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayTuesday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayTuesday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayTuesday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="WednesdayChipWide"
+                      Grid.Column="2"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="水"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayWednesday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayWednesday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayWednesday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="ThursdayChipWide"
+                      Grid.Column="3"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="木"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayThursday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayThursday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayThursday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="FridayChipWide"
+                      Grid.Column="4"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="金"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DayFriday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DayFriday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DayFriday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="SaturdayChipWide"
+                      Grid.Column="5"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="土"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DaySaturday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DaySaturday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DaySaturday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+              <Button x:Name="SundayChipWide"
+                      Grid.Column="6"
+                      Style="{StaticResource WeekdayChip}"
+                      Text="日"
+                      Clicked="OnWeekdayClicked"
+                      BackgroundColor="{Binding DaySunday, Converter={StaticResource DaySelectedColorConverter}}"
+                      TextColor="{Binding DaySunday, Converter={StaticResource DaySelectedTextColorConverter}}">
+                <Button.Triggers>
+                  <DataTrigger TargetType="Button" Binding="{Binding DaySunday}" Value="True">
+                    <Setter Property="FontAttributes" Value="Bold" />
+                    <Setter Property="BorderColor" Value="{StaticResource Ink}" />
+                  </DataTrigger>
+                </Button.Triggers>
+              </Button>
+            </Grid>
+          </Grid>
+        </Border>
+
+        <Label Style="{StaticResource SectionHeaderText}" Text="アラームを鳴らす端末" />
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Targets}" Spacing="8">
+          <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="vm:CloudAlarmTargetItemViewModel">
+              <Border BackgroundColor="{StaticResource Surface2}"
+                      Stroke="Transparent"
+                      StrokeShape="RoundRectangle 12"
+                      Padding="16">
+                <VerticalStackLayout Spacing="0">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <Label Style="{StaticResource TitleText}"
+                           Text="{Binding DeviceDisplayName}"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1"
+                            Style="{StaticResource DestructiveButton}"
+                            Text="外す"
+                            Clicked="OnRemoveTargetClicked"
+                            CommandParameter="{Binding .}" />
+                  </Grid>
+
+                  <Label Style="{StaticResource FieldLabelText}" Text="アラームを鳴らす時刻" />
+                  <TimePicker Time="{Binding TimeOfDay}" MinimumHeightRequest="48" />
+
+                  <Label Style="{StaticResource FieldLabelText}" Text="アラーム音" />
+                  <Picker ItemsSource="{x:Static models:SoundOption.All}"
+                          ItemDisplayBinding="{Binding DisplayName}"
+                          SelectedItem="{Binding SoundKey, Converter={StaticResource SoundOptionConverter}}"
+                          MinimumHeightRequest="48" />
+
+                  <Label Style="{StaticResource FieldLabelText}" Text="音量" />
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Slider Minimum="0" Maximum="100" Value="{Binding Volume}" MinimumHeightRequest="48" />
+                    <Label Grid.Column="1"
+                           Style="{StaticResource BodyText}"
+                           FontAttributes="Bold"
+                           Text="{Binding Volume, StringFormat='{0}%'}"
+                           VerticalOptions="Center" />
+                  </Grid>
+                  <controls:StateIndicator StateKey="warn"
+                                           Text="0%: 音は鳴りません"
+                                           Margin="0,4,0,0"
+                                           IsVisible="{Binding Volume, Converter={StaticResource ZeroVolumeVisibleConverter}}" />
+
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                    <Label Style="{StaticResource BodyText}" Text="振動" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding Vibrate}" />
+                  </Grid>
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                    <Label Style="{StaticResource BodyText}" Text="この端末で鳴らす" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding Enabled}" />
+                  </Grid>
+                </VerticalStackLayout>
+              </Border>
+            </DataTemplate>
+          </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <Border Style="{StaticResource CardSurface}" StrokeShape="RoundRectangle 12" Margin="0,8,0,0">
+          <VerticalStackLayout Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <Picker ItemsSource="{Binding AvailableDevices}"
+                      ItemDisplayBinding="{Binding DisplayName}"
+                      SelectedItem="{Binding SelectedDeviceToAdd}"
+                      Title="端末を選択"
+                      MinimumHeightRequest="48" />
+              <Button Grid.Column="1"
+                      Style="{StaticResource SecondaryButton}"
+                      Text="追加"
+                      Command="{Binding AddTargetCommand}" />
+            </Grid>
+            <Label Style="{StaticResource CaptionText}"
+                   Text="追加できる端末がありません。クラウドタブで端末を登録してください。"
+                   IsVisible="{Binding AvailableDevices.Count, Converter={StaticResource EmptyCollectionVisibleConverter}}" />
+          </VerticalStackLayout>
+        </Border>
+      </VerticalStackLayout>
+    </ScrollView>
+
+    <!-- S4-6 fixed button bar: the error never scrolls away from the save button. -->
+    <VerticalStackLayout Grid.Row="1"
+                         BackgroundColor="{StaticResource Bg}"
+                         Padding="16,12"
+                         Spacing="8">
+      <Grid ColumnDefinitions="Auto,*"
+            ColumnSpacing="8"
+            IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyToBoolConverter}}">
+        <controls:StateIndicator StateKey="critical" VerticalOptions="Start" />
+        <Label Grid.Column="1"
+               FontSize="13"
+               TextColor="{StaticResource Crit}"
+               LineBreakMode="WordWrap"
+               Text="{Binding ErrorMessage}" />
+      </Grid>
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+        <Button Style="{StaticResource SecondaryButton}"
+                Text="キャンセル"
+                Command="{Binding CancelCommand}" />
+        <Button Grid.Column="1"
+                Style="{StaticResource PrimaryButton}"
+                Text="クラウドへ保存"
+                Command="{Binding SaveCommand}" />
+      </Grid>
+    </VerticalStackLayout>
+  </Grid>
+</ContentPage>

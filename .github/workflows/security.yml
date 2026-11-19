@@ -1,0 +1,109 @@
+# Scan all reachable Git history for accidental credentials.
+# Pinned scanner bytes (sha256) + pinned action commit SHA; fetch-depth 0; no persisted
+# credentials; contents:read only; no secrets; no pull_request_target; redacted output;
+# fail-closed (a scanner error fails the job exactly like a finding); synthetic positive
+# control is generated at run time in RUNNER_TEMP and never committed to this repository.
+name: secret-scan
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: secret-scan-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: gitleaks (full reachable history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history, no persisted creds)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install pinned gitleaks CLI (sha256 verified)
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+        run: |
+          set -euo pipefail
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -fsSL --retry 3 --retry-delay 2 -o "$RUNNER_TEMP/gitleaks.tgz" \
+            "$base/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          # Mismatch fails the job: never run unverified scanner bytes.
+          printf '%s  %s\n' "$GITLEAKS_SHA256" "$RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP/bin" gitleaks
+          test "$("$RUNNER_TEMP/bin/gitleaks" version)" = "$GITLEAKS_VERSION"
+
+      - name: Scanner self-test (synthetic secret in RUNNER_TEMP, never committed)
+        run: |
+          set -euo pipefail
+          gl="$RUNNER_TEMP/bin/gitleaks"
+          d="$(mktemp -d "$RUNNER_TEMP/gl-self-test.XXXXXX")"
+          trap 'rm -rf "$d" "$RUNNER_TEMP/self-test.json"' EXIT
+          git -C "$d" init -q
+          # Generated at run time: no secret-shaped literal ever enters the repo (and no fake
+          # PAT literal for push protection to flag).
+          tok="ghp_$(openssl rand -hex 24 | cut -c1-36)"
+          printf 'token = "%s"\n' "$tok" > "$d/control.txt"
+          git -C "$d" add -A
+          git -C "$d" -c user.name=Sophia -c 'user.email=308603676+Sophia27182[bot]@users.noreply.github.com' commit -qm synthetic-control
+          set +e
+          "$gl" git --no-banner --redact --no-color --log-opts="--all" \
+            --report-format json --report-path "$RUNNER_TEMP/self-test.json" \
+            --exit-code 1 "$d" >/dev/null 2>&1
+          st=$?
+          set -e
+          # Distinguish "leak found" (exactly 1 + a report with the expected rule) from a
+          # genuine scanner error (any other status, or exit 1 without findings).
+          if [ "$st" -ne 1 ]; then
+            echo "SELF_TEST_ERROR: scanner exited $st (scanner/network/config error), expected exit 1 for a leak"
+            exit 1
+          fi
+          if [ ! -s "$RUNNER_TEMP/self-test.json" ]; then
+            echo "SELF_TEST_ERROR: scanner exited 1 but wrote no report"
+            exit 1
+          fi
+          n="$(jq 'length' "$RUNNER_TEMP/self-test.json")"
+          rules="$(jq -r '[.[].RuleID] | unique | join(",")' "$RUNNER_TEMP/self-test.json")"
+          if [ "$n" -lt 1 ] || ! jq -e 'any(.[]; .RuleID == "github-pat")' "$RUNNER_TEMP/self-test.json" >/dev/null; then
+            echo "SELF_TEST_ERROR: expected a github-pat finding (findings=$n rules=$rules)"
+            exit 1
+          fi
+          echo "SELF_TEST_OK: github-pat detected, findings=$n rules=$rules, scanner exit=1"
+          rm -f "$RUNNER_TEMP/self-test.json"
+
+      - name: Scan all reachable history (redacted, fail closed)
+        run: |
+          set -euo pipefail
+          gl="$RUNNER_TEMP/bin/gitleaks"
+          report="$RUNNER_TEMP/gitleaks.json"
+          rm -f "$report"
+          # --exit-code 0 here: findings are counted below so the failure is a deliberate,
+          # explained exit 1. A scanner error still exits non-zero and fails via `set -e`.
+          "$gl" git --no-banner --redact --no-color -c .gitleaks.toml \
+            --log-opts="--all" --report-format json --report-path "$report" --exit-code 0 .
+          n="$(jq 'length' "$report")"
+          if [ "$n" -ne 0 ]; then
+            {
+              echo "### secret-scan: $n finding(s)"
+              echo '| rule | file | line | commit |'
+              echo '| --- | --- | --- | --- |'
+              jq -r '.[] | "| \(.RuleID) | \(.File) | \(.StartLine) | \(.Commit[0:7]) |"' "$report"
+            } >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.[] | "\(.RuleID) \(.File):\(.StartLine) commit=\(.Commit)"' "$report"
+            echo "FAIL: secret scan detected $n finding(s)"
+            exit 1
+          fi
+          echo "OK: 0 findings across all reachable history"

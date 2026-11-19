@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>WakeMesh.Mobile.CloudUi.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.Maui.Controls.Core" Version="11.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\WakeMesh.Core\WakeMesh.Core.csproj" />
+    <ProjectReference Include="..\..\src\WakeMesh.Client\WakeMesh.Client.csproj" />
+    <ProjectReference Include="..\..\src\WakeMesh.Api\WakeMesh.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Link pure domain logic, CloudSync, CloudManagement, and ViewModels from WakeMesh.Mobile -->
+    <Compile Include="..\..\src\WakeMesh.Mobile\Models\LocalAlarmModel.cs" Link="Linked\Models\LocalAlarmModel.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Models\AuthSettings.cs" Link="Linked\Models\AuthSettings.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Models\AccountBinding.cs" Link="Linked\Models\AccountBinding.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAlarmStore.cs" Link="Linked\Services\IAlarmStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\JsonFileAlarmStore.cs" Link="Linked\Services\JsonFileAlarmStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAlarmScheduler.cs" Link="Linked\Services\IAlarmScheduler.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmCoordinator.cs" Link="Linked\Services\AlarmCoordinator.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmScheduleCalculator.cs" Link="Linked\Services\AlarmScheduleCalculator.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IHolidayService.cs" Link="Linked\Services\IHolidayService.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\AlarmStoragePathHelper.cs" Link="Linked\Services\AlarmStoragePathHelper.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\ISecureStorageProvider.cs" Link="Linked\Services\ISecureStorageProvider.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\SecureDeviceCredentialStore.cs" Link="Linked\Services\SecureDeviceCredentialStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IDeviceInfoProvider.cs" Link="Linked\Services\IDeviceInfoProvider.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\LocalDeviceInfoProvider.cs" Link="Linked\Services\LocalDeviceInfoProvider.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAuthSettingsStore.cs" Link="Linked\Services\IAuthSettingsStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\JsonAuthSettingsStore.cs" Link="Linked\Services\JsonAuthSettingsStore.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IMsalClientAdapter.cs" Link="Linked\Services\IMsalClientAdapter.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\CloudSync\**\*.cs" Link="Linked\Services\CloudSync\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\Services\CloudManagement\**\*.cs" Link="Linked\Services\CloudManagement\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\ViewModels\ViewModelBase.cs" Link="Linked\ViewModels\ViewModelBase.cs" />
+    <Compile Include="..\..\src\WakeMesh.Mobile\ViewModels\Cloud*.cs" Link="Linked\ViewModels\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

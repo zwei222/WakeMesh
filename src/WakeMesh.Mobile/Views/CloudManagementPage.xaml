@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WakeMesh.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:WakeMesh.Mobile.Controls"
+             x:Class="WakeMesh.Mobile.Views.CloudManagementPage"
+             x:DataType="vm:CloudManagementViewModel"
+             Title="クラウド"
+             BackgroundColor="{StaticResource Bg}">
+
+  <ContentPage.Resources>
+    <Style x:Key="TitleText" TargetType="Label">
+      <Setter Property="FontSize" Value="17" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+    </Style>
+    <Style x:Key="BodyText" TargetType="Label">
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+    </Style>
+    <Style x:Key="CaptionText" TargetType="Label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="TextColor" Value="{StaticResource Ink2}" />
+      <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+    <Style x:Key="MonoText" TargetType="Label">
+      <Setter Property="FontFamily" Value="monospace" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextColor" Value="{StaticResource Ink3}" />
+    </Style>
+    <Style x:Key="SectionHeaderText" TargetType="Label">
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="TextColor" Value="{StaticResource Ink2}" />
+      <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+    <Style x:Key="PrimaryButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="{StaticResource Ink}" />
+      <Setter Property="TextColor" Value="{StaticResource OnInk}" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="16,0" />
+    </Style>
+    <Style x:Key="SecondaryButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+      <Setter Property="BorderColor" Value="{StaticResource LineStrong}" />
+      <Setter Property="BorderWidth" Value="1" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="FontAttributes" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style x:Key="TextButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Ink}" />
+      <Setter Property="BorderWidth" Value="0" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="4,0" />
+    </Style>
+    <Style x:Key="DestructiveButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Crit}" />
+      <Setter Property="BorderColor" Value="{StaticResource Crit}" />
+      <Setter Property="BorderWidth" Value="1" />
+      <Setter Property="FontSize" Value="15" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="14,0" />
+    </Style>
+    <Style x:Key="IconButton" TargetType="Button">
+      <Setter Property="BackgroundColor" Value="Transparent" />
+      <Setter Property="TextColor" Value="{StaticResource Ink3}" />
+      <Setter Property="BorderWidth" Value="0" />
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="WidthRequest" Value="48" />
+      <Setter Property="MinimumHeightRequest" Value="48" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style x:Key="CardSurface" TargetType="Border">
+      <Setter Property="BackgroundColor" Value="{StaticResource Surface1}" />
+      <Setter Property="Stroke" Value="Transparent" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style x:Key="CaptionBanner" TargetType="Border">
+      <Setter Property="BackgroundColor" Value="{StaticResource CritSurface}" />
+      <Setter Property="Stroke" Value="{StaticResource Crit}" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+  </ContentPage.Resources>
+
+  <ScrollView>
+    <VerticalStackLayout MaximumWidthRequest="640"
+                         Padding="16,8,16,24"
+                         Spacing="0"
+                         HorizontalOptions="Center">
+
+      <!-- S3-1: unconfigured (plain surface) / reauth required (warn) banner. No warning colour
+           when the cloud is simply not configured: local-only use is a valid mode. -->
+      <Border IsVisible="{Binding NeedsConfigurationOrSignIn}"
+              Margin="0,8,0,0"
+              BackgroundColor="{StaticResource Surface1}"
+              Stroke="{StaticResource Line}"
+              StrokeShape="RoundRectangle 12"
+              Padding="16">
+        <Border.Triggers>
+          <DataTrigger TargetType="Border" Binding="{Binding IsReauthRequired}" Value="True">
+            <Setter Property="BackgroundColor" Value="{StaticResource WarnSurface}" />
+            <Setter Property="Stroke" Value="{StaticResource Warn}" />
+          </DataTrigger>
+        </Border.Triggers>
+        <VerticalStackLayout Spacing="8">
+          <HorizontalStackLayout Spacing="8">
+            <controls:StateIndicator StateKey="warn" IsVisible="{Binding IsReauthRequired}" />
+            <Label Style="{StaticResource TitleText}" Text="{Binding AuthStateText}" />
+          </HorizontalStackLayout>
+          <Label Style="{StaticResource CaptionText}"
+                 Text="端末の登録やグループの同期にはサインインが必要です。この端末のアラームはそのまま鳴ります。" />
+          <Button Style="{StaticResource PrimaryButton}"
+                  Text="接続アカウントを開く"
+                  Command="{Binding NavigateToSettingsCommand}"
+                  HorizontalOptions="Start" />
+        </VerticalStackLayout>
+      </Border>
+
+      <!-- S3-2: operation result, directly under the banner so it is not missed. -->
+      <Label Style="{StaticResource CaptionText}"
+             Margin="0,12,0,0"
+             Text="{Binding StatusMessage}"
+             IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotEmptyToBoolConverter}}" />
+
+      <!-- Everything below is only meaningful when signed in: without a sign-in the lists are empty
+           and "no devices" would be a false statement. -->
+      <VerticalStackLayout IsVisible="{Binding IsConfiguredAndSignedIn}" Spacing="0">
+
+        <!-- S3-3 this device -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,24,0,8">
+          <Label Style="{StaticResource SectionHeaderText}" Text="この端末" />
+          <HorizontalStackLayout Grid.Column="1" Spacing="4">
+            <ActivityIndicator WidthRequest="20"
+                               HeightRequest="20"
+                               Color="{StaticResource Ink2}"
+                               IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}" />
+            <ActivityIndicator WidthRequest="20"
+                               HeightRequest="20"
+                               Color="{StaticResource Ink2}"
+                               IsRunning="{Binding IsSyncing}"
+                               IsVisible="{Binding IsSyncing}" />
+          </HorizontalStackLayout>
+        </Grid>
+
+        <Border Style="{StaticResource CardSurface}" StrokeShape="RoundRectangle 12">
+          <VerticalStackLayout Spacing="12">
+
+            <!-- recovery gate: destructive action needs the confirmation dialog -->
+            <Border IsVisible="{Binding IsRecoveryNeeded}"
+                    BackgroundColor="{StaticResource CritSurface}"
+                    Stroke="{StaticResource Crit}"
+                    StrokeShape="RoundRectangle 12"
+                    Padding="16">
+              <VerticalStackLayout Spacing="8">
+                <HorizontalStackLayout Spacing="8">
+                  <controls:StateIndicator StateKey="critical" />
+                  <Label Style="{StaticResource TitleText}" Text="端末の登録結果を確認できていません" />
+                </HorizontalStackLayout>
+                <Label Style="{StaticResource CaptionText}"
+                       Text="前回の端末登録が最後まで確認できませんでした。同じ端末が二重に登録されるのを防ぐため、今は再登録できません。" />
+                <Label Style="{StaticResource CaptionText}" Text="{Binding RecoveryReason}" />
+                <Button Style="{StaticResource DestructiveButton}"
+                        Text="登録をやり直せる状態にする"
+                        Clicked="OnResetRecoveryClicked"
+                        HorizontalOptions="Start" />
+              </VerticalStackLayout>
+            </Border>
+
+            <!-- local registration form (not registered yet) -->
+            <VerticalStackLayout IsVisible="{Binding NotRegistered}" Spacing="8">
+              <Label Style="{StaticResource CaptionText}"
+                     Text="この端末はまだ登録されていません。登録しなくても、この端末のアラームは利用できます。" />
+              <Entry Text="{Binding NewDeviceDisplayName}"
+                     Placeholder="端末の表示名"
+                     PlaceholderColor="{StaticResource Ink3}"
+                     TextColor="{StaticResource Ink}"
+                     BackgroundColor="{StaticResource Surface2}"
+                     FontSize="15"
+                     MinimumHeightRequest="48" />
+              <Button Style="{StaticResource PrimaryButton}"
+                      Text="この端末を登録"
+                      Command="{Binding RegisterCurrentDeviceCommand}"
+                      HorizontalOptions="Start" />
+            </VerticalStackLayout>
+
+            <!-- registered current device -->
+            <VerticalStackLayout IsVisible="{Binding IsRegistered}" Spacing="8">
+              <HorizontalStackLayout Spacing="8">
+                <Label Style="{StaticResource TitleText}" Text="{Binding CurrentDeviceDisplayName}" />
+                <Label Style="{StaticResource CaptionText}" Text="この端末" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <controls:StateIndicator StateKey="{Binding LastSyncStateKey}" Text="{Binding LastSyncStatusMessage}" />
+              <Label Style="{StaticResource CaptionText}"
+                     Text="{Binding LastSyncTimeText, StringFormat='最終同期 {0}'}" />
+              <Button Style="{StaticResource SecondaryButton}"
+                      Text="今すぐ同期"
+                      Command="{Binding ManualSyncCommand}"
+                      HorizontalOptions="Start" />
+              <Label Style="{StaticResource CaptionText}" Text="{Binding FcmNoticeText}" />
+              <Button Style="{StaticResource TextButton}"
+                      Text="詳細を表示"
+                      ImageSource="expand.png"
+                      ContentLayout="Right,8"
+                      Clicked="OnToggleDeviceDetails"
+                      HorizontalOptions="Start" />
+              <VerticalStackLayout x:Name="DeviceDetails" IsVisible="False" Spacing="4">
+                <Label Style="{StaticResource CaptionText}" Text="サーバー端末ID" />
+                <Label Style="{StaticResource MonoText}" Text="{Binding CurrentServerDeviceIdString}" />
+                <Label Style="{StaticResource CaptionText}" Text="登録情報のバージョン" />
+                <Label Style="{StaticResource MonoText}" Text="{Binding RegistrationGeneration}" />
+              </VerticalStackLayout>
+            </VerticalStackLayout>
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- S3-4 alarm groups -->
+        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,24,0,8">
+          <Label Style="{StaticResource SectionHeaderText}" Text="アラームグループ" />
+          <ActivityIndicator Grid.Column="1"
+                             WidthRequest="20"
+                             HeightRequest="20"
+                             Color="{StaticResource Ink2}"
+                             IsRunning="{Binding IsBusy}"
+                             IsVisible="{Binding IsBusy}" />
+          <Button Grid.Column="2"
+                  Style="{StaticResource TextButton}"
+                  Text="＋ 新規"
+                  Command="{Binding NavigateToCreateGroupCommand}" />
+        </Grid>
+
+        <Border IsVisible="{Binding IsGroupListError}"
+                Style="{StaticResource CaptionBanner}"
+                StrokeShape="RoundRectangle 12"
+                Margin="0,0,0,8">
+          <VerticalStackLayout Spacing="8">
+            <HorizontalStackLayout Spacing="8">
+              <controls:StateIndicator StateKey="critical" />
+              <Label Style="{StaticResource CaptionText}" Text="{Binding GroupListErrorMessage}" />
+            </HorizontalStackLayout>
+            <Button Style="{StaticResource SecondaryButton}"
+                    Text="再試行"
+                    Command="{Binding LoadDataCommand}"
+                    HorizontalOptions="Start" />
+          </VerticalStackLayout>
+        </Border>
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding AlarmGroups}" Spacing="8">
+          <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="vm:CloudAlarmGroupItemViewModel">
+              <!-- row tap opens the editor (§S3: 面全体のタップで編集) -->
+              <Border BindingContext="{Binding}"
+                      BackgroundColor="{StaticResource Surface1}"
+                      Stroke="Transparent"
+                      StrokeShape="RoundRectangle 12"
+                      Padding="16">
+                <Border.GestureRecognizers>
+                  <TapGestureRecognizer Tapped="OnGroupTapped" />
+                </Border.GestureRecognizers>
+                <VerticalStackLayout Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2">
+                      <!-- tags wrap so nothing is clipped at 344dp (§8-1) -->
+                      <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                        <Label Style="{StaticResource TitleText}" Text="{Binding Label}" Margin="0,0,8,0" />
+                        <Label Style="{StaticResource CaptionText}"
+                               Text="無効"
+                               IsVisible="False"
+                               Margin="0,0,8,0"
+                               VerticalOptions="Center">
+                          <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding Enabled}" Value="False">
+                              <Setter Property="IsVisible" Value="True" />
+                            </DataTrigger>
+                          </Label.Triggers>
+                        </Label>
+                        <controls:StateIndicator StateKey="warn"
+                                                 Text="未反映の端末あり"
+                                                 IsVisible="{Binding HasUnappliedTargets}"
+                                                 VerticalOptions="Center" />
+                      </FlexLayout>
+                      <HorizontalStackLayout Spacing="0">
+                        <Label Style="{StaticResource CaptionText}" Text="{Binding DaysSummary}" />
+                        <Label Style="{StaticResource CaptionText}" Text=" · " />
+                        <Label Style="{StaticResource CaptionText}" Text="{Binding HolidaySummary}" />
+                      </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource IconButton}"
+                            Text="⋮"
+                            Clicked="OnGroupMenuClicked"
+                            CommandParameter="{Binding .}" />
+                  </Grid>
+
+                  <VerticalStackLayout BindableLayout.ItemsSource="{Binding Targets}" Spacing="0">
+                    <BindableLayout.ItemTemplate>
+                      <DataTemplate x:DataType="vm:CloudAlarmTargetItemViewModel">
+                        <Grid ColumnDefinitions="*,Auto"
+                              RowDefinitions="Auto,Auto"
+                              Padding="0,8,0,0">
+                          <Label Style="{StaticResource BodyText}"
+                                 Text="{Binding DeviceDisplayName}"
+                                 LineBreakMode="TailTruncation" />
+                          <Label Grid.Column="1"
+                                 Text="{Binding TimeString}"
+                                 FontSize="15"
+                                 FontAttributes="Bold"
+                                 TextColor="{StaticResource Ink}" />
+                          <controls:StateIndicator Grid.Row="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Margin="0,4,0,0"
+                                                   StateKey="{Binding ReflectionStateKey}"
+                                                   Text="{Binding ReflectionStateKey, Converter={StaticResource StateKeyToShortLabelConverter}}" />
+                        </Grid>
+                      </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                  </VerticalStackLayout>
+
+                  <Button Style="{StaticResource TextButton}"
+                          Text="詳細を表示"
+                          ImageSource="expand.png"
+                          ContentLayout="Right,8"
+                          Clicked="OnToggleGroupDetails"
+                          CommandParameter="{Binding .}"
+                          HorizontalOptions="Start" />
+                  <VerticalStackLayout StyleId="GroupDetails" IsVisible="False" Spacing="4">
+                    <Label Style="{StaticResource CaptionText}" Text="{Binding ServerStatusText}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Targets}" Spacing="0">
+                      <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CloudAlarmTargetItemViewModel">
+                          <Label Style="{StaticResource CaptionText}" Text="{Binding ReflectionStatusText}" />
+                        </DataTemplate>
+                      </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Label Style="{StaticResource MonoText}" Text="{Binding Id}" />
+                  </VerticalStackLayout>
+                </VerticalStackLayout>
+              </Border>
+            </DataTemplate>
+          </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <!-- S3-5 registered devices -->
+        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,24,0,8">
+          <Label Style="{StaticResource SectionHeaderText}" Text="登録されている端末" />
+          <ActivityIndicator Grid.Column="1"
+                             WidthRequest="20"
+                             HeightRequest="20"
+                             Color="{StaticResource Ink2}"
+                             IsRunning="{Binding IsBusy}"
+                             IsVisible="{Binding IsBusy}" />
+          <Button Grid.Column="2"
+                  Style="{StaticResource TextButton}"
+                  Text="再読み込み"
+                  Command="{Binding LoadDataCommand}" />
+        </Grid>
+
+        <Border IsVisible="{Binding IsDeviceListError}"
+                Style="{StaticResource CaptionBanner}"
+                StrokeShape="RoundRectangle 12"
+                Margin="0,0,0,8">
+          <VerticalStackLayout Spacing="8">
+            <HorizontalStackLayout Spacing="8">
+              <controls:StateIndicator StateKey="critical" />
+              <Label Style="{StaticResource CaptionText}" Text="{Binding DeviceListErrorMessage}" />
+            </HorizontalStackLayout>
+            <Button Style="{StaticResource SecondaryButton}"
+                    Text="再試行"
+                    Command="{Binding LoadDataCommand}"
+                    HorizontalOptions="Start" />
+          </VerticalStackLayout>
+        </Border>
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Devices}" Spacing="8">
+          <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="vm:CloudDeviceItemViewModel">
+              <Border BackgroundColor="{StaticResource Surface1}"
+                      Stroke="Transparent"
+                      StrokeShape="RoundRectangle 12"
+                      Padding="16">
+                <VerticalStackLayout Spacing="8">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <HorizontalStackLayout Spacing="8">
+                      <Label Style="{StaticResource BodyText}"
+                             FontAttributes="Bold"
+                             Text="{Binding DisplayName}"
+                             LineBreakMode="TailTruncation"
+                             VerticalOptions="Center" />
+                      <Label Style="{StaticResource CaptionText}"
+                             Text="この端末"
+                             VerticalOptions="Center"
+                             IsVisible="{Binding CurrentDeviceBadge, Converter={StaticResource StringNotEmptyToBoolConverter}}" />
+                    </HorizontalStackLayout>
+                    <Button Grid.Column="1"
+                            Style="{StaticResource IconButton}"
+                            Text="⋮"
+                            Clicked="OnDeviceMenuClicked"
+                            CommandParameter="{Binding .}" />
+                  </Grid>
+                  <controls:StateIndicator StateKey="{Binding StateKey}"
+                                           Text="{Binding StateKey, Converter={StaticResource StateKeyToShortLabelConverter}}" />
+                  <Button Style="{StaticResource TextButton}"
+                          Text="詳細を表示"
+                          ImageSource="expand.png"
+                          ContentLayout="Right,8"
+                          Clicked="OnToggleDeviceRowDetails"
+                          CommandParameter="{Binding .}"
+                          HorizontalOptions="Start" />
+                  <VerticalStackLayout StyleId="DeviceRowDetails" IsVisible="False" Spacing="4">
+                    <Label Style="{StaticResource MonoText}" Text="{Binding Id, StringFormat='ID: {0:D}'}" />
+                    <Label Style="{StaticResource CaptionText}" Text="{Binding SyncStatusText}" />
+                  </VerticalStackLayout>
+                </VerticalStackLayout>
+              </Border>
+            </DataTemplate>
+          </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+      </VerticalStackLayout>
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>

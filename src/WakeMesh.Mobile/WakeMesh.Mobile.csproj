@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net11.0-android</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<RootNamespace>WakeMesh.Mobile</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- Display name -->
+		<ApplicationTitle>WakeMesh</ApplicationTitle>
+
+		<!-- App Identifier -->
+		<ApplicationId>com.companyname.wakemesh.mobile</ApplicationId>
+
+		<!-- Versions -->
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<SupportedOSPlatformVersion>31.0</SupportedOSPlatformVersion>
+		<WakeMeshAuthClientId Condition="'$(WakeMeshAuthClientId)' == ''">00000000-0000-0000-0000-000000000000</WakeMeshAuthClientId>
+		<!-- Optional external google-services.json for FCM. Never commit secrets to repository or client APK. -->
+		<GoogleServicesJsonPath Condition="'$(GoogleServicesJsonPath)' == ''"></GoogleServicesJsonPath>
+	</PropertyGroup>
+
+	<!-- Validate WakeMeshAuthClientId strictly before generating code or compiling -->
+	<Target Name="ValidateWakeMeshAuthClientId" BeforeTargets="BeforeBuild;BeforeCompile;GenerateCompiledAuthConstants">
+		<Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(WakeMeshAuthClientId)', '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'))"
+		       Text="WakeMeshAuthClientId ('$(WakeMeshAuthClientId)') is invalid. It must be a canonical lowercase 'd' GUID without quotes, braces, uppercase characters, or code injections." />
+	</Target>
+
+	<!-- Generate CompiledAuthConstants.g.cs before CoreCompile into IntermediateOutputPath -->
+	<Target Name="GenerateCompiledAuthConstants" BeforeTargets="BeforeCompile;CoreCompile">
+		<PropertyGroup>
+			<_GeneratedAuthConstantsFile>$(IntermediateOutputPath)CompiledAuthConstants.g.cs</_GeneratedAuthConstantsFile>
+			<_AuthConstantsLines>
+// &lt;auto-generated /&gt;
+namespace WakeMesh.Mobile%3B
+
+public static class CompiledAuthConstants
+{
+    public const string CompileTimeClientId = "$(WakeMeshAuthClientId)"%3B
+    public const string CompileTimeScheme = "msal$(WakeMeshAuthClientId)"%3B
+    public const string CompileTimeHost = "auth"%3B
+    public const string CompileTimeRedirectUri = "msal$(WakeMeshAuthClientId)://auth"%3B
+}
+			</_AuthConstantsLines>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(_GeneratedAuthConstantsFile)" Lines="$(_AuthConstantsLines)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+		<ItemGroup>
+			<Compile Include="$(_GeneratedAuthConstantsFile)" />
+			<FileWrites Include="$(_GeneratedAuthConstantsFile)" />
+		</ItemGroup>
+	</Target>
+
+	<ItemGroup Condition="'$(GoogleServicesJsonPath)' != '' and Exists('$(GoogleServicesJsonPath)')">
+		<GoogleServicesJson Include="$(GoogleServicesJsonPath)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- App Icon -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0F1012" />
+
+		<!-- Splash Screen -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0F1012" BaseSize="128,128" />
+
+		<!-- Images -->
+		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\dotnet_bot.png" BaseSize="222,185" />
+		
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+		<!-- Raw Assets -->
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
+		<PackageReference Include="Microsoft.Identity.Client" Version="4.92.0" />
+		<PackageReference Include="Xamarin.Firebase.Messaging" Version="125.1.3" />
+		<PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.12.0" />
+		<PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\WakeMesh.Core\WakeMesh.Core.csproj" />
+		<ProjectReference Include="..\WakeMesh.Client\WakeMesh.Client.csproj" />
+	</ItemGroup>
+
+</Project>
